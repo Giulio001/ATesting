@@ -37,12 +37,12 @@ Il riferimento visuale è `design_handoff_hud_restyle/README.md`; non viene impo
 | HUD                 | Impostazione/icone/font originali, pannelli funzionanti                           | Tutti gli elementi contestuali, party, target selezionato, effetti e hotbar estesa |
 | Combattimento       | Guerriero, Arciere e Mago, armi specifiche, proiettili con collisioni server, raggio/nova/barriera, vigore, mana, stun, HP/morte | Combo/carica complete, talenti, progressione completa dei cammini, duelli/PvP |
 | Oggetti             | Kit per cammino, drop raro per classe, negozio, bonus, potenziamento +9, riciclo e materiali della Frontiera | Tutti i drop, affissi avanzati, set, riforgiatura e confronto completo |
-| Missioni            | Prima missione giocabile e persistente, credito cooperativo, ricompensa unica     | Campagna e missioni originali, giornaliere, imprese                                |
+| Missioni            | Primo giuramento e Frontiera: cinque creature, enigma del faro, Campione e ricompensa unica, progresso persistente     | Campagna e missioni originali, giornaliere, imprese                                |
 | NPC                 | Custode, Quartiermastro, Araldo, Fabbro, prossimità controllata dal server                            | Tutti gli altri servizi, training, compagni e dialoghi                             |
 | Clan                | Fondazione, richieste, membri/ruoli, tesoreria, chat, persistenza                 | Stemma personalizzato, castelli, spedizioni e guerra                               |
 | Multiplayer         | Room condivisa, interpolazione, server autoritativo                               | Party, amici, scambi, aste e spostamenti fra regioni                               |
 | Identità/salvataggi | Personaggio distinto per browser, salvataggio server separato                     | Account/password/recupero e scelta dei personaggi come nell'originale              |
-| Arte 3D             | Lumengate procedurale, materiali dipinti, VFX, tre eroi articolati con armi distinte e VFX luminosi                 | GLB approvati per eroi/nemici/equipaggiamento e ricostruzione del mondo            |
+| Arte 3D             | Lumengate procedurale, materiali dipinti, VFX, tre eroi articolati con armi distinte e VFX luminosi, Frontiera con Slime/Sputaschegge e faro                 | GLB approvati per eroi/nemici/equipaggiamento e ricostruzione del mondo            |
 
 Questa è la base del porting, con il primo ciclo RPG, tre cammini e la prima forgia. Le modifiche ai cammini e ai nuovi VFX non sono state provate: le prove sono state sospese su richiesta dell’utente. L'intero MMORPG originale non è ancora stato ricostruito.
 
@@ -51,3 +51,11 @@ Questa è la base del porting, con il primo ciclo RPG, tre cammini e la prima fo
 I prezzi e la crescita della forgia seguono l’originale. Lumengate rende disponibili solo i materiali della Frontiera; le altre regioni e la riforgiatura non sono ancora giocabili. Le probabilità dei materiali seguono le tabelle originali trash/elite e il moltiplicatore 0,96. Le dimensioni del raggio e della nova e la velocità/portata delle frecce sono convertite da pixel a metri (50 px/m); combo, talenti e bilanciamento completo del combattimento restano da portare. Il danno base conserva il bilanciamento della prima versione 3D.
 
 Il cambio cammino in città è una facilitazione di ATesting per usare le tre classi sullo stesso personaggio. Non rappresenta il sistema originale di account e selezione di più personaggi. Il kit di ogni cammino si ottiene una sola volta e occupa spazio nello zaino. I potenziamenti delle armi già ottenute vengono conservati.
+
+## Seconda zona: prima Frontiera 3D
+
+La regione orientale con ponte, avamposto, faro e radura è una ricostruzione procedurale adattata, con collisioni condivise fra client e server. Non importa la geometria Phaser della mappa originale. Le identità di Slime, Voidling, Shard Spitter e Hollow Champion provengono dalle Terre Sanguinanti originali; nomi visuali e statistiche sono adattati alla prima versione 3D.
+
+La missione riprende `dialogue.gatewarden.story.0`, `campaign.clue.1` e le risposte del primo indizio da `packages/shared/src/campaignText.ts`. I 100 oro, 10 polveri, 2 pozioni, 2 materiali comuni e la formula EXP (70% dei livelli 1–5) vengono dal primo capitolo di `apps/server/src/missions/StoryRewards.ts`. Il Campione è uno scontro finale aggiunto all’adattamento, con area più ampia sotto metà vita. Quest’area non include ancora istanze story/raid, gate originali o Bosco Sommerso.
+
+La ricompensa si ritira una sola volta da Ser Aurel. Se non c’è spazio per i materiali, lo stato resta pronto da riscuotere. I salvataggi versione 1 ricevono i nuovi contatori della Frontiera senza perdere quelli del primo giuramento. La Frontiera e i nuovi modelli dei nemici non sono stati provati, come richiesto dall’utente.

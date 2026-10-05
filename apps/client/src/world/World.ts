@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { OBSTACLES, DUMMY, CUSTODIAN, NPCS } from '@aetheria/shared';
+import { OBSTACLES, DUMMY, CUSTODIAN, NPCS, FRONTIER } from '@aetheria/shared';
 import { paintedTexture } from './Art';
 const material = (color: number, metalness = 0, roughness = 0.85) =>
   new T.MeshStandardMaterial({ color, metalness, roughness, flatShading: true });
@@ -24,6 +24,8 @@ export class World {
   private occluders: T.Mesh[] = [];
   private occlusionRay = new T.Raycaster();
   private flameLights: T.PointLight[] = [];
+  private sun!: T.DirectionalLight;
+  private frontierCrystal = new T.Group();
   constructor() {
     this.scene.background = new T.Color(0x536d82);
     this.scene.fog = new T.FogExp2(0x536d82, 0.017);
@@ -34,7 +36,7 @@ export class World {
     roof.map = paintedTexture('roof');
     roof.bumpMap = roof.map;
     roof.bumpScale = 0.04;
-    const sun = new T.DirectionalLight(0xffe9bf, 3.1);
+    const sun = (this.sun = new T.DirectionalLight(0xffe9bf, 3.1));
     sun.position.set(-12, 23, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -44,7 +46,7 @@ export class World {
     sun.shadow.camera.bottom = -28;
     sun.shadow.normalBias = 0.035;
     sun.shadow.bias = -0.00015;
-    this.scene.add(sun);
+    this.scene.add(sun, sun.target);
     const fill = new T.DirectionalLight(0x86b5dc, 1.3);
     fill.position.set(16, 9, -15);
     this.scene.add(fill);
@@ -97,7 +99,11 @@ export class World {
         this.house(g, o.hx, o.hz, o.height);
         this.addOccluder(g);
       }
-      if (o.kind === 'wall') this.tower(g);
+      if (o.kind === 'wall') {
+        if (o.x >= 24)
+          this.mesh(new T.BoxGeometry(o.hx * 2, o.height, o.hz * 2), dark, g, 0, o.height / 2);
+        else this.tower(g);
+      }
       if (o.kind === 'tree') this.tree(g, o.height);
       if (o.kind === 'rock') {
         const r = this.mesh(new T.DodecahedronGeometry(o.height), stone, g, 0, o.height * 0.4, 0);
@@ -152,6 +158,7 @@ export class World {
     }
     this.makeDummy();
     this.details();
+    this.makeFrontier();
     const geometry = new T.BufferGeometry();
     const positions = new Float32Array(150 * 3);
     for (let i = 0; i < 150; i++) {
@@ -171,6 +178,121 @@ export class World {
       }),
     );
     this.scene.add(this.particles);
+  }
+  private makeFrontier() {
+    const grass = new T.MeshStandardMaterial({
+      color: 0x645f72,
+      map: paintedTexture('grass'),
+      roughness: 1,
+    });
+    this.mesh(new T.BoxGeometry(48, 1.8, 50), grass, this.scene, 54, -0.95);
+    const bridge = new T.Group();
+    bridge.position.set(27, 0, 0);
+    this.scene.add(bridge);
+    this.mesh(new T.BoxGeometry(12, 0.22, 6), stone, bridge, 0, -0.14);
+    for (const z of [-3, 3]) {
+      this.mesh(new T.BoxGeometry(12, 0.3, 0.22), dark, bridge, 0, 0.8, z);
+      for (let i = -5; i <= 5; i += 2)
+        this.mesh(new T.BoxGeometry(0.28, 0.9, 0.28), gold, bridge, i, 0.4, z);
+    }
+    const path = new T.InstancedMesh(new T.BoxGeometry(0.8, 0.06, 0.9), stone, 102);
+    const transform = new T.Object3D();
+    let index = 0;
+    for (let x = 18; x <= 68; x++)
+      for (const side of [-1, 1]) {
+        transform.position.set(x, -0.01, side * 0.5 + Math.sin((x - 35) * 0.16) * 2);
+        transform.rotation.y = Math.sin(x) * 0.15;
+        transform.updateMatrix();
+        path.setMatrixAt(index++, transform.matrix);
+      }
+    path.receiveShadow = true;
+    this.scene.add(path);
+    for (const [x, z] of [
+      [20, -4],
+      [32, -4],
+      [38, 4],
+      [61, -8],
+    ])
+      this.lantern(x, z);
+    const camp = new T.Group();
+    camp.position.set(36, 0, -4);
+    this.scene.add(camp);
+    this.mesh(new T.ConeGeometry(2.1, 2.6, 4), material(0x697e76), camp, 0, 1.1).rotation.y =
+      Math.PI / 4;
+    this.mesh(new T.BoxGeometry(0.7, 0.65, 0.7), wood, camp, 2.8, 0.32, 0.8);
+    const beacon = new T.Group();
+    beacon.position.set(FRONTIER.beacon.x, 0, FRONTIER.beacon.z);
+    this.scene.add(beacon);
+    this.mesh(new T.CylinderGeometry(1.15, 1.4, 0.35, 10), dark, beacon, 0, 0.16);
+    for (const side of [-1, 1])
+      this.mesh(new T.BoxGeometry(0.35, 3.2, 0.35), gold, beacon, side * 0.8, 1.6);
+    this.frontierCrystal.position.y = 2.1;
+    beacon.add(this.frontierCrystal);
+    const crystalMat = new T.MeshStandardMaterial({
+      color: 0xc69dff,
+      emissive: 0x9d5ce6,
+      emissiveIntensity: 3,
+      metalness: 0.3,
+      roughness: 0.15,
+    });
+    this.mesh(new T.OctahedronGeometry(0.6), crystalMat, this.frontierCrystal);
+    for (let i = 0; i < 3; i++) {
+      const orbit = this.mesh(
+        new T.TorusGeometry(0.9 + i * 0.14, 0.018, 6, 48),
+        glow,
+        this.frontierCrystal,
+      );
+      orbit.rotation.x = Math.PI / 2 + i * 0.4;
+    }
+    const scorch = this.mesh(
+      new T.RingGeometry(1.5, 2.3, 48),
+      new T.MeshBasicMaterial({
+        color: 0x8e4cb4,
+        transparent: true,
+        opacity: 0.5,
+        side: T.DoubleSide,
+        depthWrite: false,
+      }),
+      beacon,
+      0,
+      0.025,
+    );
+    scorch.rotation.x = -Math.PI / 2;
+    const light = new T.PointLight(0xa16ce7, 7, 9);
+    light.position.y = 2.4;
+    beacon.add(light);
+    const arena = new T.Group();
+    arena.position.set(FRONTIER.boss.x, 0, FRONTIER.boss.z);
+    this.scene.add(arena);
+    const seal = this.mesh(new T.RingGeometry(4.8, 5, 64), gold, arena, 0, 0.012);
+    seal.rotation.x = -Math.PI / 2;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const column = this.mesh(
+        new T.CylinderGeometry(0.25, 0.38, 1.4 + (i % 3), 7),
+        dark,
+        arena,
+        Math.sin(angle) * 5,
+        0.7 + (i % 3) * 0.5,
+        Math.cos(angle) * 5,
+      );
+      column.rotation.z = Math.sin(i) * 0.12;
+    }
+    const foliage = new T.InstancedMesh(new T.ConeGeometry(0.12, 0.65, 4), material(0x937292), 150);
+    for (let i = 0; i < 150; i++) {
+      transform.position.set(40 + this.noise(i, 48) * 36, 0.22, (this.noise(i, 89) - 0.5) * 44);
+      transform.rotation.y = i;
+      transform.updateMatrix();
+      foliage.setMatrixAt(i, transform.matrix);
+    }
+    this.scene.add(foliage);
+  }
+  followRegion(x: number, z: number) {
+    this.sun.position.set(x - 12, 23, z + 10);
+    this.sun.target.position.set(x, 0, z);
+    const frontier = x >= 30;
+    (this.scene.background as T.Color).lerp(new T.Color(frontier ? 0x5a536c : 0x536d82), 0.04);
+    (this.scene.fog as T.FogExp2).color.copy(this.scene.background as T.Color);
   }
   private noise(x: number, z: number) {
     const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
@@ -423,6 +545,7 @@ export class World {
     this.mesh(new T.CylinderGeometry(0.035, 0.04, 1.85, 8), gold, this.custodian, 0.48, 1);
     this.mesh(new T.OctahedronGeometry(0.14), glow, this.custodian, 0.48, 1.98);
     for (const service of NPCS.slice(1)) {
+      if (service.id === 'frontier-beacon') continue;
       const { x, z } = service;
       const color =
         service.service === 'forge' ? 0x935e43 : service.service === 'clan' ? 0x675082 : 0x706144;
@@ -582,6 +705,8 @@ export class World {
     ring.rotation.x = -Math.PI / 2;
   }
   update(time: number, hp: number) {
+    this.frontierCrystal.rotation.y = time * 0.55;
+    this.frontierCrystal.position.y = 2.1 + Math.sin(time * 2) * 0.12;
     this.portal.rotation.y = time * 0.28;
     this.portal.position.y = 2.7 + Math.sin(time * 1.4) * 0.12;
     this.particles.rotation.y = time * 0.012;

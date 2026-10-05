@@ -6,7 +6,13 @@ import {
   nearbyNpc,
   OBSTACLES,
   WORLD_BOUND,
-  BATTLE_START,
+  isHostile,
+  regionName,
+  FRONTIER,
+  FRONTIER_TITLES,
+  FRONTIER_STORY,
+  frontierObjective,
+  enemyRules,
   canInteract,
   xpRequired,
   CLASS_NAMES,
@@ -31,6 +37,7 @@ export class HUD {
   private point = new Vector3();
   private lastQuest = -1;
   private hurtUntil = 0;
+  onDialogueChoice: (id: string) => void = () => {};
   onCloseDialogue: () => void = () => {};
   get dialogueOpen() {
     return !$('dialogue').classList.contains('hidden');
@@ -77,7 +84,9 @@ export class HUD {
     $('player-name').textContent = name;
     $('connection').classList.add('online');
     this.lastQuest = -1;
-    this.toast('Benvenuto a Lumengate. Parla con Ser Aurel vicino alla fontana · E.');
+    this.toast(
+      'Benvenuto a Lumengate. Ser Aurel ti attende alla fontana; il ponte a est conduce alla Frontiera.',
+    );
   }
   error(message: string) {
     this.closeDialogue();
@@ -98,6 +107,13 @@ export class HUD {
     this.toastTimeout = setTimeout(() => $('toast').classList.remove('visible'), 4000);
   }
   dialogue(e: DialogueEvent) {
+    $('dialogue-choices').replaceChildren();
+    for (const choice of e.choices ?? []) {
+      const button = document.createElement('button');
+      button.textContent = choice.label;
+      button.addEventListener('click', () => this.onDialogueChoice(choice.id));
+      $('dialogue-choices').append(button);
+    }
     $('dialogue-title').textContent = e.title;
     $('dialogue-text').textContent = e.text;
     $('dialogue-close').textContent = e.complete ? 'Per Lumengate →' : 'Ho capito →';
@@ -162,19 +178,19 @@ export class HUD {
       this.project(el, n.x, 2.3, n.z, camera);
     });
     const online = state?.players.size ?? 0;
-    $('population').textContent = online ? `${online} Guardian online` : 'Lumengate';
+    $('population').textContent = online ? `${online} viandanti online` : 'Lumengate';
     if (state)
       $('connection').querySelector('span')!.textContent = `Multiplayer · ${online} online`;
     $('fps').textContent = `${Math.round(fps)} FPS`;
     const p = state?.players.get(id),
       serverNow = Date.now();
     if (p) {
-      const danger = p.z >= BATTLE_START;
-      $('location').querySelector('h2')!.textContent = danger ? 'Porta del Vuoto' : 'Lumengate';
-      $('map-panel').querySelector('span')!.textContent = danger ? 'FENDITURA' : 'LUMENGATE';
+      const danger = isHostile(p.x, p.z);
+      $('location').querySelector('h2')!.textContent = regionName(p.x, p.z);
+      $('map-panel').querySelector('span')!.textContent = regionName(p.x, p.z).toUpperCase();
       $('player-status').textContent = danger
         ? 'Zona ostile · schiva i cerchi rossi'
-        : 'Lumengate · rigenerazione attiva';
+        : `${regionName(p.x, p.z)} · rifugio sicuro`;
       $('player-status').classList.toggle('danger', danger);
       $('player-level').textContent =
         `${CLASS_NAMES[heroClass(p.heroClass)].toUpperCase()} · LIVELLO ${p.level}`;
@@ -184,11 +200,12 @@ export class HUD {
         ['guard', abilities.GUARD],
         ['skill', abilities.BURST],
       ] as const) {
-        const labels = p.heroClass === 'VOID_KNIGHT'
-          ? { aether: 'Raggio', guard: 'Barriera', skill: 'Nova' }
-          : p.heroClass === 'AETHER_BLADE'
-            ? { aether: 'Freccia', guard: 'Guardia', skill: 'Raffica' }
-            : { aether: 'Taglio', guard: 'Guardia', skill: 'Impulso' };
+        const labels =
+          p.heroClass === 'VOID_KNIGHT'
+            ? { aether: 'Raggio', guard: 'Barriera', skill: 'Nova' }
+            : p.heroClass === 'AETHER_BLADE'
+              ? { aether: 'Freccia', guard: 'Guardia', skill: 'Raffica' }
+              : { aether: 'Taglio', guard: 'Guardia', skill: 'Impulso' };
         $(button).querySelector('b')!.textContent = labels[button];
         $(button).title = `${ability.name} · ${ability.key}`;
         const image = $(button).querySelector('img')!;
@@ -240,13 +257,15 @@ export class HUD {
       $('interact').classList.toggle('nearby', !!nearby);
       $('hotbar').classList.toggle('near-npc', !!nearby);
       $('interact').querySelector('b')!.textContent =
-        nearby?.service === 'shop'
-          ? 'Negozia'
-          : nearby?.service === 'clan'
-            ? 'Clan'
-            : nearby?.service === 'forge'
-              ? 'Forgia'
-              : 'Parla';
+        nearby?.id === 'frontier-beacon'
+          ? 'Esamina'
+          : nearby?.service === 'shop'
+            ? 'Negozia'
+            : nearby?.service === 'clan'
+              ? 'Clan'
+              : nearby?.service === 'forge'
+                ? 'Forgia'
+                : 'Parla';
       $('death').classList.toggle('hidden', p.hp > 0);
       if (p.hp === 0)
         $('death-count').textContent = String(
@@ -280,6 +299,21 @@ export class HUD {
             : p.questState === 2
               ? 'Riscuoti la ricompensa · E'
               : 'Affronta il Custode del Vuoto';
+      if (p.questState === 3) {
+        $('quest').querySelector('h3')!.textContent = FRONTIER_TITLES[p.frontierState];
+        $('objective').textContent = p.frontierState === 5 ? '◆' : '◇';
+        $('quest-description').textContent = frontierObjective(p.frontierState, p.frontierKills);
+        $('quest-text').textContent =
+          p.frontierState === 1
+            ? `Creature corrotte · ${p.frontierKills} / 5`
+            : p.frontierState === 4
+              ? 'Riscuoti da Ser Aurel · E'
+              : p.frontierState === 5
+                ? 'Frontiera completata'
+                : 'Segui la traccia della Frontiera';
+        $('asset-note').textContent =
+          `Ricompensa · ${FRONTIER_STORY.reward.gold} oro + ${FRONTIER_STORY.reward.xp} EXP + 10 polvere`;
+      }
     }
     $('damage-screen').style.opacity = String(
       Math.max(0, (this.hurtUntil - performance.now()) / 400) * 0.7,
@@ -309,11 +343,10 @@ export class HUD {
         $('world-labels').append(label);
         this.labels.set(labelId, label);
       }
-      label.querySelector('span')!.textContent =
-        enemy.type === 'sentinel' ? 'CUSTODE DEL VUOTO' : 'SCHEGGIA DEL VUOTO';
+      label.querySelector('span')!.textContent = enemyRules(enemy.type).name.toUpperCase();
       (label.querySelector('i') as HTMLElement).style.width = `${(enemy.hp / enemy.maxHp) * 100}%`;
       label.querySelector('small')!.textContent = `${enemy.hp} / ${enemy.maxHp}`;
-      this.project(label, enemy.x, enemy.type === 'sentinel' ? 3 : 2.25, enemy.z, camera);
+      this.project(label, enemy.x, enemyRules(enemy.type).elite ? 3 : 2.25, enemy.z, camera);
       if (enemy.hp <= 0 || Math.hypot(enemy.x - x, enemy.z - z) > 14)
         label.style.visibility = 'hidden';
     });
@@ -352,37 +385,65 @@ export class HUD {
   private drawMap(state: WorldState | undefined, id: string, x: number, z: number) {
     const c = this.map,
       s = 180 / (WORLD_BOUND * 2 + 8),
-      origin = 90;
+      origin = 90,
+      centerX = x >= 30 ? 54 : 0;
     c.clearRect(0, 0, 180, 180);
     c.fillStyle = '#16312e';
     c.fillRect(0, 0, 180, 180);
-    c.fillStyle = '#425d62';
-    c.fillRect(origin - 14 * s, origin - 14 * s, 28 * s, 28 * s);
-    c.fillStyle = '#403349';
-    c.beginPath();
-    c.ellipse(origin, origin + 17 * s, 7 * s, 7.7 * s, 0, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = '#aaad8766';
-    c.lineWidth = 1;
-    c.beginPath();
-    c.arc(90, 90, 7.8 * s, 0, Math.PI * 2);
-    c.stroke();
+    if (centerX) {
+      c.fillStyle = '#483b52';
+      c.fillRect(0, 0, 180, 180);
+    }
+    if (!centerX) {
+      c.fillStyle = '#425d62';
+      c.fillRect(origin - 14 * s, origin - 14 * s, 28 * s, 28 * s);
+      c.fillStyle = '#403349';
+      c.beginPath();
+      c.ellipse(origin, origin + 17 * s, 7 * s, 7.7 * s, 0, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = '#aaad8766';
+      c.lineWidth = 1;
+      c.beginPath();
+      c.arc(90, 90, 7.8 * s, 0, Math.PI * 2);
+      c.stroke();
+    } else {
+      c.strokeStyle = '#b5a17d';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(0, 90);
+      c.lineTo(135, 90);
+      c.stroke();
+    }
     c.fillStyle = '#23353e';
     for (const o of OBSTACLES)
-      c.fillRect(origin + (o.x - o.hx) * s, origin + (o.z - o.hz) * s, o.hx * 2 * s, o.hz * 2 * s);
+      c.fillRect(
+        origin + (o.x - centerX - o.hx) * s,
+        origin + (o.z - o.hz) * s,
+        o.hx * 2 * s,
+        o.hz * 2 * s,
+      );
     const dot = (px: number, pz: number, color: string, r = 3) => {
       c.fillStyle = color;
       c.beginPath();
-      c.arc(origin + px * s, origin + pz * s, r, 0, Math.PI * 2);
+      c.arc(origin + (px - centerX) * s, origin + pz * s, r, 0, Math.PI * 2);
       c.fill();
     };
+
     dot(DUMMY.x, DUMMY.z, '#d9be7c', 2);
     for (const npc of NPCS) dot(npc.x, npc.z, '#f4d48f', 3);
-    c.fillStyle = '#a294e1';
-    c.fillRect(origin - 2, origin - 12 * s - 2, 4, 4);
+    if (centerX) dot(FRONTIER.beacon.x, FRONTIER.beacon.z, '#b797fa', 4);
+    else {
+      c.fillStyle = '#a294e1';
+      c.fillRect(origin - 2, origin - 12 * s - 2, 4, 4);
+    }
     state?.enemies.forEach((e) => {
       if (e.hp > 0)
-        dot(e.x, e.z, e.type === 'sentinel' ? '#eb91e2' : '#ec8d83', e.type === 'sentinel' ? 3 : 2);
+        dot(
+          e.x,
+          e.z,
+          enemyRules(e.type).elite ? '#eb91e2' : '#ec8d83',
+          enemyRules(e.type).elite ? 3 : 2,
+        );
     });
     state?.players.forEach((p, key) => {
       if (key !== id) dot(p.x, p.z, '#d3bc8f', 2.5);

@@ -1,7 +1,7 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import {
   OBSTACLES,
-  WORLD_BOUND,
+  WORLD_LIMITS,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
   DT,
@@ -24,19 +24,17 @@ export class PhysicsWorld {
     this.world.timestep = DT;
     this.controller.enableSnapToGround(0.2);
     this.controller.setSlideEnabled(true);
-    this.world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.25, 30).setTranslation(0, -0.25, 0));
+    this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(55, 0.25, 30).setTranslation(27, -0.25, 0),
+    );
     for (const o of OBSTACLES)
       this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(o.hx, o.height / 2, o.hz).setTranslation(o.x, o.height / 2, o.z),
       );
-    for (const s of [-1, 1]) {
-      this.world.createCollider(
-        RAPIER.ColliderDesc.cuboid(1, 5, 26).setTranslation(s * (WORLD_BOUND + 1), 5, 0),
-      );
-      this.world.createCollider(
-        RAPIER.ColliderDesc.cuboid(26, 5, 1).setTranslation(0, 5, s * (WORLD_BOUND + 1)),
-      );
-    }
+    for (const x of [WORLD_LIMITS.minX - 1, WORLD_LIMITS.maxX + 1])
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(1, 5, 26).setTranslation(x, 5, 0));
+    for (const z of [WORLD_LIMITS.minZ - 1, WORLD_LIMITS.maxZ + 1])
+      this.world.createCollider(RAPIER.ColliderDesc.cuboid(53, 5, 1).setTranslation(27, 5, z));
     this.world.step();
   }
   createPlayer(x: number, z: number): PhysicsPlayer {

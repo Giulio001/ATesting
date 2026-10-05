@@ -16,3 +16,5 @@ Screenshot reali del client, catturati con rendering software e modalità Legger
 Prima della richiesta di sospendere le prove: TypeScript e 14 test unitari superati sulla prima implementazione della forgia, inclusi costi, bonus, fallimento, riciclo, materiali, salvataggio e migrazione. Questo risultato precede le modifiche successive alle classi.
 
 Su richiesta dell’utente, non sono stati eseguiti ulteriori test, build, integrazione o prove browser per la versione con Guerriero, Arciere, Mago e nuovi effetti. Gli screenshot sopra appartengono alla versione precedente.
+
+La successiva aggiunta della Frontiera, dell’indizio interattivo, del Campione e dei nuovi modelli dei nemici non è stata sottoposta a test, build o prove browser, mantenendo la richiesta di sospendere le prove.

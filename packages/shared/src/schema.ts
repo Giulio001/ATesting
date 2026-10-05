@@ -19,6 +19,8 @@ export class PlayerState extends Schema {
   gold = 0;
   questState = 0;
   questKills = 0;
+  frontierState = 0;
+  frontierKills = 0;
   kills = 0;
   deadUntil = 0;
   skillUntil = 0;
@@ -55,6 +57,8 @@ defineTypes(PlayerState, {
   gold: 'uint32',
   questState: 'uint8',
   questKills: 'uint8',
+  frontierState: 'uint8',
+  frontierKills: 'uint8',
   kills: 'uint32',
   deadUntil: 'float64',
   skillUntil: 'float64',
@@ -80,6 +84,10 @@ export class EnemyState extends Schema {
   type = 'shard';
   behavior = 'idle';
   attackAt = 0;
+  attackX = 0;
+  attackZ = 0;
+  attackRadius = 1.7;
+  attackDuration = 850;
   respawnAt = 0;
   stunnedUntil = 0;
 }
@@ -92,6 +100,10 @@ defineTypes(EnemyState, {
   type: 'string',
   behavior: 'string',
   attackAt: 'float64',
+  attackX: 'float32',
+  attackZ: 'float32',
+  attackRadius: 'float32',
+  attackDuration: 'uint16',
   respawnAt: 'float64',
   stunnedUntil: 'float64',
 });

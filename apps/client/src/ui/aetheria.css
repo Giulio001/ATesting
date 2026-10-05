@@ -1551,3 +1551,19 @@
     gap: 12px;
   }
 }
+
+#dialogue-choices {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+#dialogue-choices button {
+  width: 100%;
+  padding: 10px;
+  color: #ebdfbd;
+  background: #172832;
+  border: 1px solid #8b795a;
+}
+.quest-entry + .quest-entry {
+  margin-top: 20px;
+}

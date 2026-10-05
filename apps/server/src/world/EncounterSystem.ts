@@ -2,6 +2,11 @@ import { EnemyState, type PlayerState, type WorldState } from '@aetheria/shared/
 import type { PhysicsWorld, PhysicsPlayer } from '@aetheria/shared/physics';
 import {
   ENEMY_SPAWNS,
+  FRONTIER,
+  FRONTIER_STORY,
+  isHostile,
+  enemyRules,
+  nearbyNpc,
   MAX_LEVEL,
   BATTLE_START,
   QUEST_GOAL,
@@ -20,6 +25,7 @@ import {
   type DialogueEvent,
 } from '@aetheria/shared';
 
+const spawnRegion = (x: number) => x >= 30;
 interface EnemyRuntime {
   lastAttack: number;
   contributors: Map<string, number>;
@@ -31,6 +37,7 @@ interface Callbacks {
   reward(id: string, event: RewardEvent): void;
   dialogue(id: string, event: DialogueEvent): void;
   loot?(id: string, elite: boolean): void;
+  frontierReward?(id: string): boolean;
 }
 export class EncounterSystem {
   private runtime = new Map<string, EnemyRuntime>();
@@ -52,7 +59,23 @@ export class EncounterSystem {
   }
   interact(id: string) {
     const p = this.state.players.get(id);
-    if (!p || p.hp <= 0 || !canInteract(p.x, p.z)) return;
+    if (!p || p.hp <= 0) return;
+    const npc = nearbyNpc(p.x, p.z);
+    if (npc?.id === 'frontier-beacon') {
+      this.beacon(id);
+      return;
+    }
+    if (npc?.id === 'frontier-scout') {
+      p.hp = p.maxHp;
+      p.mana = 100;
+      this.events.dialogue(id, {
+        title: 'Esploratore della Frontiera',
+        text: 'Il sentiero a est conduce al faro. Le pozze degli Sputaschegge colpiscono il punto in cui ti trovavi: continua a muoverti. Il Campione Cavo protegge la radura oltre il faro. Torna qui per curarti o segui il ponte a ovest per Lumengate.',
+        complete: false,
+      });
+      return;
+    }
+    if (!canInteract(p.x, p.z)) return;
     p.hp = p.maxHp;
     p.mana = 100;
     p.potions = Math.max(p.potions, 3);
@@ -68,15 +91,73 @@ export class EncounterSystem {
       this.grant(id, 100, 75, true);
       text =
         'La porta è di nuovo al sicuro. Accetta queste 75 monete e la mia riconoscenza. Nelle profondità della fenditura resta un Custode del Vuoto: affrontalo quando ti sentirai pronto. La tua prima avventura è compiuta.';
+    } else if (p.frontierState === 0) {
+      p.frontierState = 1;
+      text =
+        FRONTIER_STORY.offer +
+        ' Segui il sentiero a est: il passo collega la città alla Frontiera.';
+    } else if (p.frontierState === 4) {
+      if (this.events.frontierReward?.(id) === false) {
+        text = 'Libera una casella nello zaino per i materiali della ricompensa, poi torna da me.';
+      } else {
+        p.frontierState = 5;
+        p.potions = Math.min(99, p.potions + FRONTIER_STORY.reward.potions);
+        this.grant(id, FRONTIER_STORY.reward.xp, FRONTIER_STORY.reward.gold, true);
+        text =
+          'La tua scoperta conferma che una stessa corruzione lega le creature della Frontiera. Il Campione è caduto e il faro risponde allo Scudo di Lumengate. Accetta oro, esperienza, polvere e materiali: la strada verso il Bosco Sommerso sarà la prossima tappa.';
+      }
+    } else if (p.frontierState > 0 && p.frontierState < 4) {
+      text =
+        p.frontierState === 1
+          ? `Nelle Terre Sanguinanti hai sconfitto ${p.frontierKills}/5 creature. Segui il sentiero a est.`
+          : p.frontierState === 2
+            ? 'Hai raccolto cinque tracce. Esamina la bruciatura presso il faro e interpreta il segno comune.'
+            : 'La scoperta è conservata. Affronta il Campione Cavo nella radura a est del faro, poi torna da me.';
     } else {
       text =
-        'Bentornato, Guardian. Ho curato le tue ferite e rifornito le pozioni. Se cerchi una prova più difficile, il Custode del Vuoto attende vicino alla fenditura. Lumengate sarà sempre il tuo rifugio.';
+        'Bentornato, viandante. Ho curato le tue ferite e rifornito le pozioni. Se cerchi una prova più difficile, il Custode del Vuoto attende vicino alla fenditura. Lumengate sarà sempre il tuo rifugio.';
     }
     this.events.dialogue(id, {
       title: 'Ser Aurel · Custode della porta',
       text,
       complete: p.questState === 3,
     });
+  }
+  private beacon(id: string) {
+    const p = this.state.players.get(id)!;
+    this.events.dialogue(id, {
+      title: 'Faro d’Aether · Una traccia nel mondo',
+      text:
+        p.frontierState < 2
+          ? 'La bruciatura viola vibra nella luce. Il Custode ti ha chiesto di raccogliere cinque tracce dalle creature di queste terre.'
+          : p.frontierState === 2
+            ? FRONTIER_STORY.clue
+            : FRONTIER_STORY.discovery,
+      complete: p.frontierState >= 3,
+      choices:
+        p.frontierState === 2
+          ? [
+              { id: 'corruption', label: 'La stessa corruzione' },
+              { id: 'wounds', label: 'Ferite di armi diverse' },
+              { id: 'weather', label: 'Il maltempo' },
+            ]
+          : undefined,
+    });
+  }
+  answerFrontier(id: string, value: unknown) {
+    const p = this.state.players.get(id);
+    if (!p || p.hp <= 0 || p.frontierState !== 2 || nearbyNpc(p.x, p.z)?.id !== 'frontier-beacon')
+      return;
+    if (value === 'corruption') {
+      p.frontierState = 3;
+      this.events.dialogue(id, {
+        title: 'Scoperta conservata',
+        text: FRONTIER_STORY.discovery,
+        complete: true,
+      });
+    } else if (value === 'wounds' || value === 'weather') {
+      this.beacon(id);
+    }
   }
   potion(id: string, now: number) {
     const p = this.state.players.get(id);
@@ -87,7 +168,7 @@ export class EncounterSystem {
   }
   strike(id: string, kind: AttackKind, yaw: number, now: number): CombatHit[] {
     const p = this.state.players.get(id);
-    if (!p || p.hp <= 0 || p.z < BATTLE_START) return [];
+    if (!p || p.hp <= 0 || !isHostile(p.x, p.z)) return [];
     const hits: CombatHit[] = [];
     this.state.enemies.forEach((e, key) => {
       if (
@@ -116,7 +197,15 @@ export class EncounterSystem {
   ): CombatHit | null {
     const p = this.state.players.get(id),
       e = this.state.enemies.get(key);
-    if (!p || p.hp <= 0 || !e || e.hp <= 0 || p.z < BATTLE_START) return null;
+    if (
+      !p ||
+      p.hp <= 0 ||
+      !e ||
+      e.hp <= 0 ||
+      !isHostile(p.x, p.z) ||
+      (e.type === 'champion' && p.frontierState < 3)
+    )
+      return null;
     e.hp = Math.max(0, e.hp - damage);
     if (kind === 'skill') {
       e.stunnedUntil = now + 1000;
@@ -128,7 +217,7 @@ export class EncounterSystem {
     if (e.hp === 0) {
       e.behavior = 'dead';
       e.attackAt = 0;
-      e.respawnAt = now + (e.type === 'sentinel' ? 45000 : 20000);
+      e.respawnAt = now + enemyRules(e.type).respawn;
       for (const [participant, time] of this.runtime.get(key)!.contributors) {
         const hero = this.state.players.get(participant);
         if (
@@ -143,13 +232,14 @@ export class EncounterSystem {
           hero.questKills = Math.min(QUEST_GOAL, hero.questKills + 1);
           if (hero.questKills === QUEST_GOAL) hero.questState = 2;
         }
-        this.events.loot?.(participant, e.type === 'sentinel');
-        this.grant(
-          participant,
-          e.type === 'sentinel' ? 100 : 40,
-          e.type === 'sentinel' ? 40 : 12,
-          false,
-        );
+        if (spawnRegion(e.x) && hero.frontierState === 1 && e.type !== 'champion') {
+          hero.frontierKills = Math.min(FRONTIER.goal, hero.frontierKills + 1);
+          if (hero.frontierKills === FRONTIER.goal) hero.frontierState = 2;
+        }
+        if (e.type === 'champion' && hero.frontierState === 3) hero.frontierState = 4;
+        const rules = enemyRules(e.type);
+        this.events.loot?.(participant, rules.elite);
+        this.grant(participant, rules.xp, rules.gold, false);
       }
       this.runtime.get(key)!.contributors.clear();
     }
@@ -189,12 +279,13 @@ export class EncounterSystem {
       } else {
         p.mana = Math.min(100, p.mana + DT * 6);
         p.stamina = Math.min(100, p.stamina + DT * 24);
-        if (regen && p.z < BATTLE_START) p.hp = Math.min(p.maxHp, p.hp + 4);
+        if (regen && !isHostile(p.x, p.z)) p.hp = Math.min(p.maxHp, p.hp + 4);
       }
     });
     for (const spawn of ENEMY_SPAWNS) {
       const e = this.state.enemies.get(spawn.id)!,
         runtime = this.runtime.get(spawn.id)!;
+      const rules = enemyRules(e.type);
       if (e.hp <= 0) {
         if (now >= e.respawnAt) {
           e.x = spawn.x;
@@ -212,11 +303,16 @@ export class EncounterSystem {
       }
       if (e.behavior === 'windup') {
         if (now >= e.attackAt) {
-          const radius = e.type === 'sentinel' ? 2.35 : 1.7;
+          const radius = e.attackRadius;
           this.state.players.forEach((p, id) => {
-            if (p.hp <= 0 || p.z < BATTLE_START || Math.hypot(p.x - e.x, p.z - e.z) > radius)
+            if (
+              p.hp <= 0 ||
+              !isHostile(p.x, p.z) ||
+              Math.hypot(p.x - e.attackX, p.z - e.attackZ) > radius ||
+              !hasLineOfSight(e.x, e.z, p.x, p.z)
+            )
               return;
-            const raw = e.type === 'sentinel' ? 18 : 12;
+            const raw = rules.damage * (e.type === 'champion' && e.hp < e.maxHp / 2 ? 1.25 : 1);
             const damage = Math.max(
               1,
               Math.round(Math.max(1, raw / (1 + p.defence / 100)) * (now < p.guardUntil ? 0.4 : 1)),
@@ -243,9 +339,9 @@ export class EncounterSystem {
         continue;
       }
       let nearest: PlayerState | undefined,
-        distance = 8;
+        distance = runtime.contributors.size ? 24 : 8;
       this.state.players.forEach((p) => {
-        if (p.hp <= 0 || p.z < BATTLE_START) return;
+        if (p.hp <= 0 || !isHostile(p.x, p.z) || spawnRegion(p.x) !== spawnRegion(e.x)) return;
         const d = Math.hypot(p.x - e.x, p.z - e.z);
         if (d < distance) {
           nearest = p;
@@ -266,13 +362,17 @@ export class EncounterSystem {
         continue;
       }
       e.yaw = Math.atan2(nearest.x - e.x, nearest.z - e.z);
-      const reach = e.type === 'sentinel' ? 2.05 : 1.4;
+      const reach = rules.reach;
       if (distance <= reach && now - runtime.lastAttack > 1600) {
         e.behavior = 'windup';
-        e.attackAt = now + (e.type === 'sentinel' ? 1100 : 850);
+        e.attackX = e.type === 'spitter' ? nearest.x : e.x;
+        e.attackZ = e.type === 'spitter' ? nearest.z : e.z;
+        e.attackRadius = rules.radius * (e.type === 'champion' && e.hp < e.maxHp / 2 ? 1.3 : 1);
+        e.attackDuration = rules.windup;
+        e.attackAt = now + rules.windup;
       } else if (distance > reach * 0.8) {
         e.behavior = 'chase';
-        this.move(e, nearest.x, nearest.z, e.type === 'sentinel' ? 1.45 : 1.8);
+        this.move(e, nearest.x, nearest.z, rules.speed);
       } else e.behavior = 'idle';
     }
   }
@@ -283,9 +383,12 @@ export class EncounterSystem {
     if (distance < 0.001) return;
     const amount = Math.min(distance, speed * DT),
       nx = e.x + (dx / distance) * amount,
-      nz = Math.max(BATTLE_START + 0.3, e.z + (dz / distance) * amount);
+      nz =
+        e.x >= 30
+          ? e.z + (dz / distance) * amount
+          : Math.max(BATTLE_START + 0.3, e.z + (dz / distance) * amount);
     // The open encounter field shares obstacle tests with player combat.
-    if (hasLineOfSight(e.x, e.z, nx, nz)) {
+    if (isHostile(nx, nz) && hasLineOfSight(e.x, e.z, nx, nz)) {
       e.x = nx;
       e.z = nz;
     }

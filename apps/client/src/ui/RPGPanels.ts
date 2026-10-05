@@ -15,6 +15,10 @@ import {
   countMaterial,
   nearbyNpc,
   CLASS_NAMES,
+  isHostile,
+  FRONTIER_TITLES,
+  FRONTIER_STORY,
+  frontierObjective,
   HERO_CLASSES,
   heroClass,
   classAbilities,
@@ -252,10 +256,11 @@ export class RPGPanels {
       'La porta di Lumengate è al sicuro. Il Custode del Vuoto ti attende nella fenditura.',
     ];
     this.content.innerHTML = `<article class="quest-entry"><small>LUMENGATE · ${state === 3 ? 'COMPLETATA' : state === 0 ? 'DA ACCETTARE' : 'IN CORSO'}</small><h3>Il primo giuramento</h3><p>${lines[state]}</p><div class="quest-meter"><i style="width:${((p?.questKills ?? 0) / 3) * 100}%"></i></div><p>Schegge sconfitte: ${p?.questKills ?? 0} / 3</p><strong>Ricompensa: 75 oro + 100 EXP</strong><p>Interagisci con il custode premendo E o il pulsante PARLA.</p></article>`;
+    this.content.innerHTML += `<article class="quest-entry"><small>TERRE SANGUINANTI · ${p?.frontierState === 5 ? 'COMPLETATA' : p?.frontierState ? 'IN CORSO' : 'DA ACCETTARE'}</small><h3>${FRONTIER_TITLES[p?.frontierState ?? 0]}</h3><p>${frontierObjective(p?.frontierState ?? 0, p?.frontierKills ?? 0)}</p><p>Creature corrotte: ${p?.frontierKills ?? 0} / 5</p><strong>Ricompensa: ${FRONTIER_STORY.reward.gold} oro · ${FRONTIER_STORY.reward.xp} EXP · 10 polvere · 2 pozioni · 2 Gelatine Eteree</strong><p>Il ponte a est collega Lumengate alla Frontiera. Il faro conserva l’indizio; il Campione difende la radura orientale.</p></article>`;
   }
   private character() {
     const p = this.player();
-    this.content.innerHTML = `<div class="character-summary"><div class="paper-doll-crest">♜</div><h3>${esc(p?.name ?? 'Viandante')}</h3><p>${CLASS_NAMES[heroClass(p?.heroClass)].toUpperCase()} · LIVELLO ${p?.level ?? 1}</p>${p?.clanName ? `<p>Clan: ${esc(p.clanName)}</p>` : ''}</div><div class="stat-grid"><p>Vita <b>${p?.hp ?? 100} / ${p?.maxHp ?? 100}</b></p><p>Mana <b>${Math.floor(p?.mana ?? 100)} / 100</b></p><p>Attacco arma <b>+${p?.attackBonus ?? 0}</b></p><p>Difesa equipaggiamento <b>${p?.defence ?? 0}</b></p><p>Oro <b>${p?.gold ?? 0}</b></p><p>Creature sconfitte <b>${p?.kills ?? 0}</b></p></div><button data-open-panel="inventory">Apri equipaggiamento →</button><p>Puoi cambiare cammino in città. I progressi e gli oggetti vengono conservati.</p><div class="class-choices">${HERO_CLASSES.map((cls) => `<button data-class="${cls}" ${p?.heroClass === cls || !p || p.hp <= 0 || p.z >= 10 ? 'disabled' : ''}>${CLASS_NAMES[cls]}</button>`).join('')}</div>`;
+    this.content.innerHTML = `<div class="character-summary"><div class="paper-doll-crest">♜</div><h3>${esc(p?.name ?? 'Viandante')}</h3><p>${CLASS_NAMES[heroClass(p?.heroClass)].toUpperCase()} · LIVELLO ${p?.level ?? 1}</p>${p?.clanName ? `<p>Clan: ${esc(p.clanName)}</p>` : ''}</div><div class="stat-grid"><p>Vita <b>${p?.hp ?? 100} / ${p?.maxHp ?? 100}</b></p><p>Mana <b>${Math.floor(p?.mana ?? 100)} / 100</b></p><p>Attacco arma <b>+${p?.attackBonus ?? 0}</b></p><p>Difesa equipaggiamento <b>${p?.defence ?? 0}</b></p><p>Oro <b>${p?.gold ?? 0}</b></p><p>Creature sconfitte <b>${p?.kills ?? 0}</b></p></div><button data-open-panel="inventory">Apri equipaggiamento →</button><p>Puoi cambiare cammino in città. I progressi e gli oggetti vengono conservati.</p><div class="class-choices">${HERO_CLASSES.map((cls) => `<button data-class="${cls}" ${p?.heroClass === cls || !p || p.hp <= 0 || isHostile(p.x, p.z) ? 'disabled' : ''}>${CLASS_NAMES[cls]}</button>`).join('')}</div>`;
   }
   private shop() {
     this.content.innerHTML = `<p class="panel-intro">Equipaggiamento e provviste di Lumengate. Oro: ${this.player()?.gold ?? 0}. Gli acquisti richiedono la vicinanza al Quartiermastro.</p><div class="shop-list">${SHOP_ITEMS.map((item) => `<article>${this.icon(item)}<div><h3>${esc(item.name)}</h3><p>${esc(item.description)}</p></div><button data-buy="${item.id}">${item.price} ORO</button></article>`).join('')}</div>`;
@@ -322,7 +327,7 @@ export class RPGPanels {
   }
   private map() {
     this.content.innerHTML =
-      '<canvas id="large-map" width="540" height="540" aria-label="Mappa di Lumengate"></canvas><p class="map-legend">◆ Guardian · ● Giallo: NPC · ● Rosso: nemici · ◇ Viola: fenditura</p>';
+      '<canvas id="large-map" width="540" height="540" aria-label="Mappa di Lumengate"></canvas><p class="map-legend">◆ Guardian · ● Giallo: NPC · ● Rosso: nemici · ◇ Viola: fenditura / faro</p>';
     const c = (document.getElementById('large-map') as HTMLCanvasElement).getContext('2d')!;
     c.imageSmoothingEnabled = false;
     c.drawImage(document.getElementById('minimap') as HTMLCanvasElement, 0, 0, 540, 540);

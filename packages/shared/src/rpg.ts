@@ -56,6 +56,22 @@ export const NPCS = [
     z: -1.5,
     service: 'forge',
   },
+  {
+    id: 'frontier-beacon',
+    name: 'Faro d’Aether',
+    role: 'Esamina la bruciatura',
+    x: 61,
+    z: -5,
+    service: 'frontier',
+  },
+  {
+    id: 'frontier-scout',
+    name: 'Esploratore della Frontiera',
+    role: 'Avamposto delle Terre Sanguinanti',
+    x: 36,
+    z: 2,
+    service: 'frontier',
+  },
 ] as const;
 export type NpcId = (typeof NPCS)[number]['id'];
 export function nearbyNpc(x: number, z: number) {

@@ -2,7 +2,7 @@
 
 Ricostruzione parallela di **Aetheria — Shards of the Void** con TypeScript, Three.js, Rapier e Colyseus. L'obiettivo è mantenere il gioco di `Giulio001/RoundWorld`, portandone mondo e personaggi in 3D. Nessun editor o engine esterno è richiesto.
 
-**ATesting è separato da Aetheria 2D online.** Server, salvataggi, porte e configurazione di deploy sono indipendenti. Questa versione porta il primo nucleo RPG giocabile; non contiene ancora tutto il mondo e tutti i sistemi del gioco originale.
+**ATesting è separato da Aetheria 2D online.** Server, salvataggi, porte e configurazione di deploy sono indipendenti. Questa versione porta il primo nucleo RPG e una prima Frontiera collegata a Lumengate; non contiene ancora tutto il mondo e tutti i sistemi del gioco originale.
 
 ![Lumengate e HUD](docs/lumengate-desktop.jpg)
 
@@ -69,6 +69,19 @@ Il movimento determina la direzione del personaggio; il mouse permette di mirare
 5. Puoi fondare un clan dall'**Araldo**, a est della fontana, oppure affrontare il **Custode del Vuoto**, che lascia anche una spada rara.
 
 La città è sicura: rigenera HP e il custode cura/rifornisce. Le creature restano nella zona ostile a sud. Se muori, torni in città dopo quattro secondi. Le schegge ricompaiono dopo 20 secondi, il Custode dopo 45. Il manichino in piazza resta disponibile per provare attacchi e skill.
+
+### Terre Sanguinanti: seconda zona 3D
+
+Dopo aver riscosso il primo giuramento, **parla di nuovo con Ser Aurel**: ricevi Risonanza dello Scudo. Segui il sentiero e il ponte a **est** della città. L’avamposto all’ingresso è sicuro; l’Esploratore ripristina vita e mana. Oltre l’avamposto comincia la zona ostile.
+
+1. Sconfiggi **cinque creature corrotte**: Slime, Creature del Vuoto o Sputaschegge. Il credito è condiviso con chi partecipa allo scontro e il progresso è personale e persistente.
+2. Raggiungi il **Faro d’Aether** ed esamina la bruciatura con E o Esamina. Leggi l’indizio e scegli cosa accomuna le creature. Le risposte vengono controllate dal server e richiedono la vicinanza al faro.
+3. Affronta il **Campione Cavo**, nella radura a est del faro. La sua area d’attacco cresce sotto metà vita. Gli Sputaschegge lasciano invece il loro avviso sul punto in cui ti trovavi: spostati prima dell’impatto.
+4. Torna da **Ser Aurel**: il premio comprende 100 oro, l’EXP del primo capitolo originale, 10 Polveri d’Aether, 2 pozioni e 2 Gelatine Eteree. Si riscuote una sola volta. Se lo zaino è pieno, libera spazio e riparla con il custode.
+
+Il Campione lascia anche un’arma rara per il tuo cammino. Il ponte permette di tornare a piedi; Menu → Torna in città resta disponibile quando sei lontano dai nemici. In caso di morte torni a Lumengate, conservando i progressi della missione. La minimappa passa alla Frontiera e mostra il faro, l’avamposto e le creature.
+
+La mappa è una prima ricostruzione procedurale 3D. Il capitolo riprende le cinque creature e il quesito sulla corruzione dall’originale; il Campione Cavo è adattato a scontro finale di questa zona. Non è ancora la mappa completa né l’intera campagna di RoundWorld.
 
 ### Zaino, equipaggiamento e negozio
 

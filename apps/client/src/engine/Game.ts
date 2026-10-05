@@ -100,6 +100,7 @@ export class Game {
       );
     };
     this.input.onEscape = () => this.hud.closeDialogue();
+    this.hud.onDialogueChoice = (choice) => this.network.send('frontier-answer', choice);
     this.hud.onCloseDialogue = () => this.input.setMenuOpen(this.panels.isOpen);
     this.network.onCombat = (e) => this.combat(e);
     this.network.onRespawn = () => this.hud.toast('Il manichino è pronto per un nuovo duello.');
@@ -356,6 +357,7 @@ export class Game {
         }
       this.camera.update(this.position, dt);
     } else this.camera.update(new T.Vector3(0, 0, -2), dt);
+    this.world.followRegion(this.position.x, this.position.z);
     this.world.update(now / 1000, state?.dummyHp ?? 240);
     this.vfx.update(dt);
     this.hud.update(

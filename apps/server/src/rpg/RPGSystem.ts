@@ -9,6 +9,8 @@ import {
   CLAN_CREATION_COST,
   intrinsicGearStats,
   equipRefusal,
+  isHostile,
+  FRONTIER_STORY,
   heroClass,
   HERO_CLASSES,
   CLASS_NAMES,
@@ -60,6 +62,8 @@ export class RPGSystem {
       'gold',
       'questState',
       'questKills',
+      'frontierState',
+      'frontierKills',
       'kills',
       'potions',
       'manaPotions',
@@ -83,6 +87,8 @@ export class RPGSystem {
       'gold',
       'questState',
       'questKills',
+      'frontierState',
+      'frontierKills',
       'kills',
       'potions',
       'manaPotions',
@@ -210,7 +216,14 @@ export class RPGSystem {
   selectClass(id: string, value: unknown) {
     const profile = this.profiles.get(id),
       p = this.state.players.get(id);
-    if (!profile || !p || !HERO_CLASSES.includes(value as never) || p.hp <= 0 || p.z >= 10) return;
+    if (
+      !profile ||
+      !p ||
+      !HERO_CLASSES.includes(value as never) ||
+      p.hp <= 0 ||
+      isHostile(p.x, p.z)
+    )
+      return;
     const cls = heroClass(value);
     if (cls === profile.heroClass) return;
     const kit = starterKit(cls),
@@ -347,6 +360,32 @@ export class RPGSystem {
         price: 0,
       });
   }
+  frontierReward(id: string): boolean {
+    const profile = this.profiles.get(id);
+    if (!profile) return false;
+    const existing = profile.items.find(
+      (i) =>
+        materialIdOf(i) === 'aether_gel' &&
+        i.quantity + FRONTIER_STORY.reward.gel <= MATERIAL_STACK_MAX,
+    );
+    if (!existing && profile.items.length >= BAG_CAPACITY) return false;
+    if (existing) existing.quantity += FRONTIER_STORY.reward.gel;
+    else
+      profile.items.push({
+        id: randomUUID(),
+        kind: 'MATERIAL',
+        name: 'Gelatina Eterea',
+        icon: 'aether_gel',
+        rarity: 'COMMON',
+        quantity: FRONTIER_STORY.reward.gel,
+        level: 1,
+        description: 'Ricompensa della Frontiera per i potenziamenti della forgia.',
+        stats: {},
+        price: 0,
+      });
+    profile.aetherDust += FRONTIER_STORY.reward.dust;
+    return true;
+  }
   loot(id: string, elite: boolean) {
     const profile = this.profiles.get(id);
     if (!profile) return;
@@ -389,7 +428,7 @@ export class RPGSystem {
         rarity: 'RARE',
         quantity: 1,
         level: 2,
-        description: 'Lama rara recuperata dal Custode del Vuoto.',
+        description: 'Equipaggiamento raro recuperato da un avversario d’élite.',
         stats: intrinsicGearStats({
           kind: 'WEAPON',
           name:

@@ -4,6 +4,7 @@ import { initializePhysics, PhysicsWorld, type PhysicsPlayer } from '@aetheria/s
 import {
   ATTACKS,
   DUMMY,
+  isHostile,
   DT,
   SPAWN,
   sanitizeInput,
@@ -65,6 +66,7 @@ export class LumengateRoom extends Room<WorldState> {
         this.rpg.checkpoint(id);
         this.rpg.send(id);
       },
+      frontierReward: (id) => this.rpg.frontierReward(id),
       loot: (id, elite) => this.rpg.loot(id, elite),
       dialogue: (id, e) => this.clients.find((c) => c.sessionId === id)?.send('dialogue', e),
     });
@@ -74,14 +76,21 @@ export class LumengateRoom extends Room<WorldState> {
       targets: (id) => {
         const p = this.state.players.get(id);
         const targets = this.state.dummyHp > 0 ? [{ id: 'dummy', ...DUMMY, radius: 0.5 }] : [];
-        if (p && p.z >= 10)
+        if (p && isHostile(p.x, p.z))
           for (const [id, enemy] of this.state.enemies) {
             if (enemy.hp > 0)
               targets.push({
                 id,
                 x: enemy.x,
                 z: enemy.z,
-                radius: enemy.type === 'sentinel' ? 0.8 : 0.45,
+                radius:
+                  enemy.type === 'champion'
+                    ? 1
+                    : enemy.type === 'sentinel'
+                      ? 0.8
+                      : enemy.type === 'slime'
+                        ? 0.65
+                        : 0.45,
                 maxHp: enemy.maxHp,
               });
           }
@@ -129,7 +138,7 @@ export class LumengateRoom extends Room<WorldState> {
       s.lastInteract = now;
       const p = this.state.players.get(client.sessionId)!;
       const npc = nearbyNpc(p.x, p.z);
-      if (npc?.service === 'quest') {
+      if (npc?.service === 'quest' || npc?.service === 'frontier') {
         this.encounters.interact(client.sessionId);
         this.rpg.checkpoint(client.sessionId);
         this.rpg.send(client.sessionId);
@@ -137,6 +146,11 @@ export class LumengateRoom extends Room<WorldState> {
         this.clients
           .find((c) => c.sessionId === client.sessionId)
           ?.send('service', { npc: npc.id, service: npc.service });
+    });
+    this.onMessage('frontier-answer', (client, value) => {
+      this.encounters.answerFrontier(client.sessionId, value);
+      this.rpg.checkpoint(client.sessionId);
+      this.rpg.send(client.sessionId);
     });
     this.onMessage('potion', (client) => {
       this.encounters.potion(client.sessionId, Date.now());

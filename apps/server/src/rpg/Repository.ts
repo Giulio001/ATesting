@@ -19,6 +19,8 @@ export interface Profile {
   heroClass: HeroClass;
   questState: number;
   questKills: number;
+  frontierState: number;
+  frontierKills: number;
   kills: number;
   potions: number;
   manaPotions: number;
@@ -48,6 +50,8 @@ export class Repository {
       Object.assign(this.profiles, d.profiles);
       for (const profile of Object.values(this.profiles)) {
         profile.aetherDust ??= 0;
+        profile.frontierState ??= 0;
+        profile.frontierKills ??= 0;
         profile.heroClass = heroClass(profile.heroClass);
       }
       Object.assign(this.clans, d.clans);
@@ -70,6 +74,8 @@ export class Repository {
         heroClass: heroClass(selectedClass),
         questState: 0,
         questKills: 0,
+        frontierState: 0,
+        frontierKills: 0,
         kills: 0,
         potions: 3,
         manaPotions: 2,

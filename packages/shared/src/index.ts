@@ -1,5 +1,7 @@
 import { experienceToNextLevel } from './aetheria/progression.js';
 import { MAGE_SPELL } from './rpg.js';
+import { FRONTIER_SPAWNS } from './frontier.js';
+export * from './frontier.js';
 export { MAX_LEVEL, experienceToNextLevel } from './aetheria/progression.js';
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;
@@ -18,6 +20,7 @@ export const ENEMY_SPAWNS = [
   { id: 'shard-east', type: 'shard', x: 3.5, z: 15, hp: 96 },
   { id: 'shard-south', type: 'shard', x: 0, z: 18, hp: 96 },
   { id: 'sentinel', type: 'sentinel', x: 0, z: 21, hp: 260 },
+  ...FRONTIER_SPAWNS,
 ] as const;
 export const ATTACKS = {
   slash: { cooldown: 650, range: 2.8, damage: 58, duration: 0.48 },
@@ -72,6 +75,7 @@ export interface DialogueEvent {
   title: string;
   text: string;
   complete: boolean;
+  choices?: { id: string; label: string }[];
 }
 export interface Obstacle {
   x: number;
@@ -79,9 +83,21 @@ export interface Obstacle {
   hx: number;
   hz: number;
   height: number;
-  kind: 'house' | 'wall' | 'shrine' | 'tree' | 'rock' | 'well' | 'gate';
+  kind: 'house' | 'wall' | 'shrine' | 'tree' | 'rock' | 'well' | 'gate' | 'camp' | 'beacon';
 }
 export const OBSTACLES: Obstacle[] = [
+  { x: 36, z: -4, hx: 1.5, hz: 1.5, height: 2.2, kind: 'camp' },
+  { x: 61, z: -5, hx: 1.15, hz: 1.15, height: 0.35, kind: 'beacon' },
+  { x: 27, z: -14, hx: 3, hz: 10, height: 3, kind: 'wall' },
+  { x: 27, z: 14, hx: 3, hz: 10, height: 3, kind: 'wall' },
+  { x: 45, z: -13, hx: 1, hz: 1, height: 5, kind: 'tree' },
+  { x: 47, z: 14, hx: 1, hz: 1, height: 6, kind: 'tree' },
+  { x: 56, z: -14, hx: 1, hz: 1, height: 6, kind: 'tree' },
+  { x: 60, z: 16, hx: 1, hz: 1, height: 5, kind: 'tree' },
+  { x: 70, z: -15, hx: 1, hz: 1, height: 6, kind: 'tree' },
+  { x: 75, z: 17, hx: 1, hz: 1, height: 5, kind: 'tree' },
+  { x: 54, z: -2, hx: 1.3, hz: 1.1, height: 1.5, kind: 'rock' },
+  { x: 59, z: 8, hx: 1.2, hz: 1.1, height: 1.4, kind: 'rock' },
   { x: 0, z: 0, hx: 1.55, hz: 1.55, height: 1.1, kind: 'well' },
   { x: -5.6, z: 10, hx: 0.5, hz: 0.5, height: 5, kind: 'gate' },
   { x: 5.6, z: 10, hx: 0.5, hz: 0.5, height: 5, kind: 'gate' },

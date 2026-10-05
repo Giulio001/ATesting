@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { hasLineOfSight, WORLD_BOUND, type CombatEvent, type CombatHit } from '@aetheria/shared';
+import { hasLineOfSight, WORLD_LIMITS, type CombatEvent, type CombatHit } from '@aetheria/shared';
 
 interface Shot {
   event: CombatEvent;
@@ -71,8 +71,10 @@ export class ProjectileSystem {
         blocked ||
         !alive ||
         shot.travelled >= projectile.range ||
-        Math.abs(shot.x) > WORLD_BOUND ||
-        Math.abs(shot.z) > WORLD_BOUND
+        shot.x < WORLD_LIMITS.minX ||
+        shot.x > WORLD_LIMITS.maxX ||
+        shot.z < WORLD_LIMITS.minZ ||
+        shot.z > WORLD_LIMITS.maxZ
       ) {
         const hit =
           target && alive
