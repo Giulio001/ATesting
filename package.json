@@ -16,8 +16,10 @@
     "build": "npm run build -w @aetheria/server && npm run build -w @aetheria/client",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
+    "test:city": "node --import tsx tests/citycheck.mjs",
     "test:integration": "node --import tsx tests/multiplayer.ts",
-    "start": "npm run start -w @aetheria/server"
+    "start": "npm run start -w @aetheria/server",
+    "test:town": "node --import tsx tests/towncheck.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

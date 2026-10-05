@@ -11,6 +11,7 @@ import {
   equipRefusal,
   isHostile,
   FRONTIER_STORY,
+  GROVE_STORY,
   heroClass,
   HERO_CLASSES,
   CLASS_NAMES,
@@ -40,6 +41,8 @@ interface Events {
 }
 export class RPGSystem {
   readonly profiles = new Map<string, Profile>();
+  /** Items promised in an open trade: they stay in the bag but cannot be used. */
+  readonly locked = new Set<string>();
   private lastChat = new Map<string, number>();
   constructor(
     private state: WorldState,
@@ -64,6 +67,8 @@ export class RPGSystem {
       'questKills',
       'frontierState',
       'frontierKills',
+      'groveState',
+      'groveKills',
       'kills',
       'potions',
       'manaPotions',
@@ -89,6 +94,8 @@ export class RPGSystem {
       'questKills',
       'frontierState',
       'frontierKills',
+      'groveState',
+      'groveKills',
       'kills',
       'potions',
       'manaPotions',
@@ -191,6 +198,10 @@ export class RPGSystem {
     if (!p || !profile || p.hp <= 0 || !value || typeof value !== 'object') return;
     const v = value as Record<string, unknown>;
     const item = profile.items.find((i) => i.id === v.id);
+    if (item && this.locked.has(item.id)) {
+      this.toast(id, 'Questo oggetto è impegnato in uno scambio.');
+      return;
+    }
     if (
       v.action === 'unequip' &&
       typeof v.slot === 'string' &&
@@ -284,6 +295,10 @@ export class RPGSystem {
     }
     const item = profile.items.find((i) => i.id === v.id);
     if (!item || !EQUIPMENT_SLOTS.includes(item.kind as EquipmentSlot)) return;
+    if (this.locked.has(item.id)) {
+      this.toast(id, 'Questo oggetto è impegnato in uno scambio.');
+      return;
+    }
     if (v.action === 'salvage') {
       if (Object.values(profile.equipment).includes(item.id) || protectedStarterItem(item)) {
         this.toast(id, 'Il kit iniziale e gli oggetti indossati non possono essere riciclati.');
@@ -384,6 +399,32 @@ export class RPGSystem {
         price: 0,
       });
     profile.aetherDust += FRONTIER_STORY.reward.dust;
+    return true;
+  }
+  groveReward(id: string): boolean {
+    const profile = this.profiles.get(id);
+    if (!profile) return false;
+    const existing = profile.items.find(
+      (i) =>
+        materialIdOf(i) === 'aether_gel' &&
+        i.quantity + GROVE_STORY.reward.gel <= MATERIAL_STACK_MAX,
+    );
+    if (!existing && profile.items.length >= BAG_CAPACITY) return false;
+    if (existing) existing.quantity += GROVE_STORY.reward.gel;
+    else
+      profile.items.push({
+        id: randomUUID(),
+        kind: 'MATERIAL',
+        name: 'Gelatina Eterea',
+        icon: 'aether_gel',
+        rarity: 'COMMON',
+        quantity: GROVE_STORY.reward.gel,
+        level: 1,
+        description: 'Ricompensa del Bosco Sommerso per i potenziamenti della forgia.',
+        stats: {},
+        price: 0,
+      });
+    profile.aetherDust += GROVE_STORY.reward.dust;
     return true;
   }
   loot(id: string, elite: boolean) {

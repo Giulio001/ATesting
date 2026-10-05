@@ -1,7 +1,8 @@
 import * as T from 'three';
 import { ATTACKS, type AttackKind } from '@aetheria/shared';
 import { AnimationController } from '../animation/AnimationController';
-import type { AssetLoader } from '../engine/AssetLoader';
+import { CLASS_MODEL, classClips } from '../animation/clips';
+import { findBone, instanceMaterials, slotMeshes, type AssetLoader } from '../engine/AssetLoader';
 
 export class Warrior {
   readonly root = new T.Group();
@@ -21,9 +22,13 @@ export class Warrior {
   private shield?: T.Group;
   private bow?: T.Group;
   private staff?: T.Group;
-  private importedBlade?: T.Mesh;
-  private importedBase = new T.Vector3();
-  private importedTip = new T.Vector3();
+  private handBone?: T.Object3D;
+  private weaponMeshes: T.Mesh[] = [];
+  private importedEmissive: {
+    material: T.MeshStandardMaterial;
+    color: number;
+    intensity: number;
+  }[] = [];
   private bladeMat?: T.MeshStandardMaterial;
   private equipmentKey = '';
   private kind: AttackKind = 'slash';
@@ -36,28 +41,22 @@ export class Warrior {
     local = false,
     readonly classId = 'GUARDIAN',
   ) {
-    const imported = classId === 'GUARDIAN' ? assets.instantiateWarrior() : null;
+    const imported = assets.instantiate(CLASS_MODEL[classId] ?? 'warrior');
     if (imported) {
       this.body.add(imported.root);
-      this.animation = new AnimationController(imported.root, imported.clips);
-      imported.root.traverse((object) => {
-        if (
-          !this.importedBlade &&
-          object instanceof T.Mesh &&
-          !(object instanceof T.SkinnedMesh) &&
-          /sword|blade/i.test(object.name)
-        ) {
-          object.geometry.computeBoundingBox();
-          const box = object.geometry.boundingBox!;
-          const size = box.getSize(new T.Vector3());
-          const axis = size.y >= size.x && size.y >= size.z ? 'y' : size.x >= size.z ? 'x' : 'z';
-          box.getCenter(this.importedBase);
-          this.importedTip.copy(this.importedBase);
-          this.importedBase[axis] = box.min[axis];
-          this.importedTip[axis] = box.max[axis];
-          this.importedBlade = object;
-        }
-      });
+      this.animation = new AnimationController(imported.root, imported.clips, classClips(classId));
+      this.handBone = findBone(imported.root, ['handslot.r', 'hand.r', 'handslot.l', 'hand.l']);
+      this.weaponMeshes = slotMeshes(imported.root, ['handslot.r', 'handslot.l']);
+      this.importedEmissive = instanceMaterials(imported.root)
+        .filter(
+          (material): material is T.MeshStandardMaterial =>
+            material instanceof T.MeshStandardMaterial,
+        )
+        .map((material) => ({
+          material,
+          color: material.emissive.getHex(),
+          intensity: material.emissiveIntensity,
+        }));
     } else this.build(local);
     this.root.add(this.body);
     const ring = new T.Mesh(
@@ -294,6 +293,7 @@ export class Warrior {
     const key = weapon + '|' + shield;
     if (key === this.equipmentKey) return;
     this.equipmentKey = key;
+    for (const mesh of this.weaponMeshes) mesh.visible = !!weapon;
     if (this.sword) this.sword.visible = !!weapon && cls === 'GUARDIAN';
     if (this.shield) this.shield.visible = !!shield && cls === 'GUARDIAN';
     if (this.bow) this.bow.visible = !!weapon && cls === 'AETHER_BLADE';
@@ -310,22 +310,32 @@ export class Warrior {
     this.attackTime = ATTACKS[kind].duration;
     this.combo = (this.combo + 1) % 3;
     this.body.rotation.y = yaw;
-    this.animation?.play(kind === 'skill' ? 'Skill01' : (`Attack0${this.combo + 1}` as 'Attack01'));
+    this.animation?.play(
+      kind === 'skill' ? 'Skill01' : (`Attack0${this.combo + 1}` as 'Attack01'),
+      true,
+    );
     if (!this.animation) this.applyAttackPose(0);
   }
   weaponPose(base: T.Vector3, tip: T.Vector3) {
     if (this.disposed) return false;
+    // Imported rigs expose a hand slot instead of separate weapon meshes.
+    if (this.handBone) {
+      base.setFromMatrixPosition(this.handBone.matrixWorld);
+      const forward = new T.Vector3(0, 0, 1).applyQuaternion(
+        this.body.getWorldQuaternion(new T.Quaternion()),
+      );
+      tip.copy(base).addScaledVector(forward, 0.85);
+      tip.y += 0.12;
+      return true;
+    }
     const weapon =
       this.classId === 'AETHER_BLADE'
         ? this.bow
         : this.classId === 'VOID_KNIGHT'
           ? this.staff
-          : (this.sword ?? this.importedBlade);
+          : this.sword;
     if (!weapon || !weapon.visible) return false;
-    if (weapon === this.importedBlade) {
-      base.copy(this.importedBase);
-      tip.copy(this.importedTip);
-    } else if (this.classId === 'AETHER_BLADE') {
+    if (this.classId === 'AETHER_BLADE') {
       base.set(0, 0, 0);
       tip.set(0, 0, 0.3);
     } else if (this.classId === 'VOID_KNIGHT') {
@@ -342,7 +352,7 @@ export class Warrior {
   }
   hit() {
     this.hurtTime = 0.3;
-    this.animation?.play('Hit');
+    this.animation?.play('Hit', true);
   }
   guard() {
     this.guardTime = 2.5;
@@ -360,9 +370,15 @@ export class Warrior {
       this.armor.emissive.setHex(this.hurtTime > 0 ? 0x6d3029 : 0x000000);
       this.armor.emissiveIntensity = this.hurtTime > 0 ? 0.8 : 0;
     }
+    for (const entry of this.importedEmissive) {
+      const flash = this.hurtTime > 0;
+      entry.material.emissive.setHex(flash ? 0x7d2f22 : entry.color);
+      entry.material.emissiveIntensity = flash ? 0.9 : entry.intensity;
+    }
+    // Rigged GLB models ship their own death animation, so the body stays upright.
     this.body.rotation.z = T.MathUtils.lerp(
       this.body.rotation.z,
-      dead ? Math.PI / 2 : 0,
+      dead && !this.animation ? Math.PI / 2 : 0,
       1 - Math.exp(-dt * 8),
     );
     if (dead) {
@@ -439,6 +455,7 @@ export class Warrior {
   dispose() {
     this.disposed = true;
     this.animation?.dispose();
+    for (const entry of this.importedEmissive) entry.material.dispose();
     // Imported assets share geometry/materials through SkeletonUtils.clone.
     if (!this.animation)
       this.body.traverse((o) => {

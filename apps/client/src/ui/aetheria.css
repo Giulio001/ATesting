@@ -1567,3 +1567,253 @@
 .quest-entry + .quest-entry {
   margin-top: 20px;
 }
+
+#tutorial {
+  position: fixed;
+  top: 158px;
+  right: 28px;
+  width: 276px;
+  padding: 13px 15px 11px;
+  background: linear-gradient(180deg, rgba(9, 14, 20, 0.9), rgba(7, 11, 16, 0.8));
+  box-shadow: inset -2px 0 0 var(--brass);
+  font: 16px 'VT323';
+  z-index: 4;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+#tutorial.hidden {
+  display: none;
+}
+.tut-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#tutorial .eyebrow {
+  font: 6px 'Press Start 2P';
+  color: var(--gold);
+  letter-spacing: 0;
+}
+#tutorial-close {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: 18px 'VT323';
+  cursor: pointer;
+  padding: 0 2px;
+}
+#tutorial-close:hover {
+  color: var(--gold);
+}
+#tutorial-steps {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+#tutorial-steps li {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 7px;
+  opacity: 0.5;
+}
+#tutorial-steps li b {
+  font-weight: 400;
+  color: #e9dcbb;
+  display: block;
+}
+#tutorial-steps li small {
+  display: block;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.05;
+}
+#tutorial-steps li::before {
+  content: '◇';
+  color: var(--brass);
+  font-size: 12px;
+  line-height: 1.35;
+}
+#tutorial-steps li.active {
+  opacity: 1;
+}
+#tutorial-steps li.active::before {
+  content: '▸';
+  color: var(--gold);
+}
+#tutorial-steps li.done {
+  opacity: 0.42;
+}
+#tutorial-steps li.done::before {
+  content: '◆';
+  color: #8fe0c4;
+}
+#tutorial-steps li.done b {
+  text-decoration: line-through;
+}
+.tut-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+.tut-progress > span {
+  flex: 1;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.tut-progress i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--brass), var(--gold));
+  transition: width 0.35s ease;
+}
+.tut-progress small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.tut-quests > .eyebrow {
+  color: var(--muted);
+}
+#quest-list {
+  list-style: none;
+  margin: 7px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+#quest-list li {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 6px;
+  align-items: start;
+}
+#quest-list i {
+  font-style: normal;
+  color: var(--brass);
+  font-size: 12px;
+}
+#quest-list b {
+  font-weight: 400;
+  color: var(--gold);
+  font-size: 15px;
+}
+#quest-list small {
+  display: block;
+  color: #cdd8e4;
+  font-size: 14px;
+  line-height: 1.05;
+}
+#quest-list li.done i {
+  color: #8fe0c4;
+}
+#hotbar button.tutorial-focus {
+  box-shadow:
+    0 0 0 2px var(--gold),
+    0 0 14px rgba(240, 201, 106, 0.5);
+}
+#tutorial.complete {
+  box-shadow: inset -2px 0 0 #8fe0c4;
+}
+@media (max-width: 767px), (pointer: coarse) {
+  #tutorial {
+    top: 132px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: 30vh;
+    padding: 9px 11px;
+  }
+  #tutorial-steps li small {
+    display: none;
+  }
+  #tutorial-steps li:not(.active):not(.done) {
+    display: none;
+  }
+  .tut-quests {
+    display: none;
+  }
+}
+
+/* Player-to-player trade */
+.trade-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.trade-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid #b5a17d55;
+  border-radius: 4px;
+  background: #2c3c3a66;
+}
+.trade-player h3 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.trade-player small {
+  opacity: 0.75;
+}
+.trade-list {
+  list-style: none;
+  margin: 6px 0 10px;
+  padding: 6px;
+  min-height: 46px;
+  border: 1px dashed #b5a17d66;
+  border-radius: 4px;
+  background: #16211f66;
+}
+.trade-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 0.78rem;
+}
+.trade-list li.muted {
+  opacity: 0.5;
+}
+.trade-list button {
+  padding: 0 6px;
+  line-height: 1.4;
+}
+.trade-gold-row,
+.trade-partner-gold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+}
+.trade-gold-row input {
+  width: 84px;
+}
+.trade-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.trade-status {
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+.trade-bag {
+  max-height: 240px;
+  overflow-y: auto;
+}
+@media (max-width: 767px), (pointer: coarse) {
+  .trade-grid {
+    grid-template-columns: 1fr;
+  }
+}

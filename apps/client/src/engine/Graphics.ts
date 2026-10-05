@@ -3,8 +3,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mobileGraphics } from './Performance';
+import { skyEnvironment } from './SkyEnv';
 export class Graphics {
   private composer?: EffectComposer;
   low = false;
@@ -14,12 +14,10 @@ export class Graphics {
     private camera: T.Camera,
     private onQuality: (low: boolean) => void,
   ) {
-    const environment = new RoomEnvironment(),
-      generator = new T.PMREMGenerator(renderer);
-    scene.environment = generator.fromScene(environment, 0.04).texture;
-    scene.environmentIntensity = 0.45;
-    environment.dispose();
-    generator.dispose();
+    // Outdoor sky probe instead of the indoor studio room: warm sun, real
+    // horizon bounce, so stone and plaster read as natural daylight.
+    scene.environment = skyEnvironment(renderer);
+    scene.environmentIntensity = 0.85;
     const setting = document.getElementById('quality') as HTMLSelectElement;
     try {
       const saved = localStorage.getItem('aetheria3d.graphics');
@@ -43,7 +41,7 @@ export class Graphics {
       this.composer = new EffectComposer(this.renderer);
       this.composer.addPass(new RenderPass(this.scene, this.camera));
       this.composer.addPass(
-        new UnrealBloomPass(new T.Vector2(innerWidth, innerHeight), 0.38, 0.45, 1.15),
+        new UnrealBloomPass(new T.Vector2(innerWidth, innerHeight), 0.36, 0.5, 1.2),
       );
       this.composer.addPass(new OutputPass());
     }

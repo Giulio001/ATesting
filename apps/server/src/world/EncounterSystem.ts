@@ -4,6 +4,8 @@ import {
   ENEMY_SPAWNS,
   FRONTIER,
   FRONTIER_STORY,
+  GROVE,
+  GROVE_STORY,
   isHostile,
   enemyRules,
   nearbyNpc,
@@ -25,7 +27,7 @@ import {
   type DialogueEvent,
 } from '@aetheria/shared';
 
-const spawnRegion = (x: number) => x >= 30;
+const spawnRegion = (x: number) => (x >= 86 ? 2 : x >= 30 ? 1 : 0);
 interface EnemyRuntime {
   lastAttack: number;
   contributors: Map<string, number>;
@@ -38,6 +40,7 @@ interface Callbacks {
   dialogue(id: string, event: DialogueEvent): void;
   loot?(id: string, elite: boolean): void;
   frontierReward?(id: string): boolean;
+  groveReward?(id: string): boolean;
 }
 export class EncounterSystem {
   private runtime = new Map<string, EnemyRuntime>();
@@ -63,6 +66,14 @@ export class EncounterSystem {
     const npc = nearbyNpc(p.x, p.z);
     if (npc?.id === 'frontier-beacon') {
       this.beacon(id);
+      return;
+    }
+    if (npc?.id === 'grove-keeper') {
+      this.groveKeeper(id);
+      return;
+    }
+    if (npc?.id === 'grove-altar') {
+      this.groveAltar(id);
       return;
     }
     if (npc?.id === 'frontier-scout') {
@@ -159,6 +170,74 @@ export class EncounterSystem {
       this.beacon(id);
     }
   }
+  private groveKeeper(id: string) {
+    const p = this.state.players.get(id)!;
+    p.hp = p.maxHp;
+    p.mana = 100;
+    p.potions = Math.max(p.potions, 3);
+    let text: string;
+    if (p.groveState === 0) {
+      p.groveState = 1;
+      text = `${GROVE_STORY.offer} Segui il sentiero a est oltre la Frontiera.`;
+    } else if (p.groveState === 4) {
+      if (this.events.groveReward?.(id) === false) {
+        text = 'Libera una casella nello zaino per i materiali della ricompensa, poi torna da me.';
+      } else {
+        p.groveState = 5;
+        p.potions = Math.min(99, p.potions + GROVE_STORY.reward.potions);
+        this.grant(id, GROVE_STORY.reward.xp, GROVE_STORY.reward.gold, true);
+        text = `${GROVE_STORY.discovery} Accetta oro, esperienza, polvere e gelatine: il Custode ti ha affidato la reliquia del bosco.`;
+      }
+    } else if (p.groveState > 0 && p.groveState < 4) {
+      text =
+        p.groveState === 1
+          ? `Le creature annegate infestano il bosco: ${p.groveKills}/6 liberate. Segui i canali a est.`
+          : p.groveState === 2
+            ? 'Sei creature liberate. Tocca l’altare sommerso e interpreta la reliquia.'
+            : 'La reliquia è risvegliata. Affronta il Guardiano Annegato presso l’altare, poi torna da me.';
+    } else {
+      text =
+        'Il bosco sommerso tace. La reliquia è al sicuro e le acque scorrono di nuovo limpide. Lumengate ti è debitrice.';
+    }
+    this.events.dialogue(id, {
+      title: 'Custode del Bosco · Guardiano del Bosco Sommerso',
+      text,
+      complete: p.groveState === 5,
+    });
+  }
+  private groveAltar(id: string) {
+    const p = this.state.players.get(id)!;
+    this.events.dialogue(id, {
+      title: 'Altare Sommerso · La reliquia del bosco',
+      text:
+        p.groveState < 2
+          ? 'Una reliquia verde pulsa sotto l’acqua. Serve che le creature annegate siano liberate prima che risponda.'
+          : p.groveState === 2
+            ? GROVE_STORY.clue
+            : GROVE_STORY.discovery,
+      complete: p.groveState >= 3,
+      choices:
+        p.groveState === 2
+          ? [
+              { id: 'relic', label: 'La reliquia risponde' },
+              { id: 'bones', label: 'Le ossa sono troppo antiche' },
+              { id: 'silence', label: 'Il bosco è senza vita' },
+            ]
+          : undefined,
+    });
+  }
+  answerGrove(id: string, value: unknown) {
+    const p = this.state.players.get(id);
+    if (!p || p.hp <= 0 || p.groveState !== 2 || nearbyNpc(p.x, p.z)?.id !== 'grove-altar') return;
+    if (value === 'relic') {
+      p.groveState = 3;
+      this.events.dialogue(id, {
+        title: 'Reliquia risvegliata',
+        text: GROVE_STORY.clue,
+        complete: true,
+      });
+    } else this.groveAltar(id);
+  }
   potion(id: string, now: number) {
     const p = this.state.players.get(id);
     if (!p || p.hp <= 0 || p.hp >= p.maxHp || p.potions <= 0 || now < p.potionUntil) return;
@@ -203,7 +282,8 @@ export class EncounterSystem {
       !e ||
       e.hp <= 0 ||
       !isHostile(p.x, p.z) ||
-      (e.type === 'champion' && p.frontierState < 3)
+      (e.type === 'champion' && p.frontierState < 3) ||
+      (e.type === 'guardian' && p.groveState < 3)
     )
       return null;
     e.hp = Math.max(0, e.hp - damage);
@@ -232,11 +312,16 @@ export class EncounterSystem {
           hero.questKills = Math.min(QUEST_GOAL, hero.questKills + 1);
           if (hero.questKills === QUEST_GOAL) hero.questState = 2;
         }
-        if (spawnRegion(e.x) && hero.frontierState === 1 && e.type !== 'champion') {
+        if (spawnRegion(e.x) === 1 && hero.frontierState === 1 && e.type !== 'champion') {
           hero.frontierKills = Math.min(FRONTIER.goal, hero.frontierKills + 1);
           if (hero.frontierKills === FRONTIER.goal) hero.frontierState = 2;
         }
         if (e.type === 'champion' && hero.frontierState === 3) hero.frontierState = 4;
+        if (spawnRegion(e.x) === 2 && hero.groveState === 1 && e.type !== 'guardian') {
+          hero.groveKills = Math.min(GROVE.goal, hero.groveKills + 1);
+          if (hero.groveKills === GROVE.goal) hero.groveState = 2;
+        }
+        if (e.type === 'guardian' && hero.groveState === 3) hero.groveState = 4;
         const rules = enemyRules(e.type);
         this.events.loot?.(participant, rules.elite);
         this.grant(participant, rules.xp, rules.gold, false);

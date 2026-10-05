@@ -12,6 +12,10 @@ import {
   FRONTIER_TITLES,
   FRONTIER_STORY,
   frontierObjective,
+  GROVE,
+  GROVE_TITLES,
+  GROVE_STORY,
+  groveObjective,
   enemyRules,
   canInteract,
   xpRequired,
@@ -259,13 +263,15 @@ export class HUD {
       $('interact').querySelector('b')!.textContent =
         nearby?.id === 'frontier-beacon'
           ? 'Esamina'
-          : nearby?.service === 'shop'
-            ? 'Negozia'
-            : nearby?.service === 'clan'
-              ? 'Clan'
-              : nearby?.service === 'forge'
-                ? 'Forgia'
-                : 'Parla';
+          : nearby?.id === 'grove-altar'
+            ? 'Tocca'
+            : nearby?.service === 'shop'
+              ? 'Negozia'
+              : nearby?.service === 'clan'
+                ? 'Clan'
+                : nearby?.service === 'forge'
+                  ? 'Forgia'
+                  : 'Parla';
       $('death').classList.toggle('hidden', p.hp > 0);
       if (p.hp === 0)
         $('death-count').textContent = String(
@@ -313,6 +319,21 @@ export class HUD {
                 : 'Segui la traccia della Frontiera';
         $('asset-note').textContent =
           `Ricompensa · ${FRONTIER_STORY.reward.gold} oro + ${FRONTIER_STORY.reward.xp} EXP + 10 polvere`;
+      }
+      if (p.frontierState >= 5 || p.groveState > 0) {
+        $('quest').querySelector('h3')!.textContent = GROVE_TITLES[p.groveState];
+        $('objective').textContent = p.groveState === 5 ? '◆' : '◇';
+        $('quest-description').textContent = groveObjective(p.groveState, p.groveKills);
+        $('quest-text').textContent =
+          p.groveState === 1
+            ? `Creature annegate · ${p.groveKills} / 6`
+            : p.groveState === 4
+              ? 'Riscuoti dal Custode del Bosco · E'
+              : p.groveState === 5
+                ? 'Bosco Sommerso completato'
+                : 'Segui la reliquia del Bosco Sommerso';
+        $('asset-note').textContent =
+          `Ricompensa · ${GROVE_STORY.reward.gold} oro + ${GROVE_STORY.reward.xp} EXP + 14 polvere`;
       }
     }
     $('damage-screen').style.opacity = String(
@@ -386,12 +407,12 @@ export class HUD {
     const c = this.map,
       s = 180 / (WORLD_BOUND * 2 + 8),
       origin = 90,
-      centerX = x >= 30 ? 54 : 0;
+      centerX = x >= 86 ? 112 : x >= 30 ? 54 : 0;
     c.clearRect(0, 0, 180, 180);
     c.fillStyle = '#16312e';
     c.fillRect(0, 0, 180, 180);
     if (centerX) {
-      c.fillStyle = '#483b52';
+      c.fillStyle = x >= 86 ? '#2b4740' : '#483b52';
       c.fillRect(0, 0, 180, 180);
     }
     if (!centerX) {
@@ -432,7 +453,10 @@ export class HUD {
     dot(DUMMY.x, DUMMY.z, '#d9be7c', 2);
     for (const npc of NPCS) dot(npc.x, npc.z, '#f4d48f', 3);
     if (centerX) dot(FRONTIER.beacon.x, FRONTIER.beacon.z, '#b797fa', 4);
-    else {
+    if (x >= 86) {
+      dot(GROVE.altar.x, GROVE.altar.z, '#7de8c2', 4);
+      dot(GROVE.boss.x, GROVE.boss.z, '#7de8c2', 5);
+    } else {
       c.fillStyle = '#a294e1';
       c.fillRect(origin - 2, origin - 12 * s - 2, 4, 4);
     }

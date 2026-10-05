@@ -72,6 +72,22 @@ export const NPCS = [
     z: 2,
     service: 'frontier',
   },
+  {
+    id: 'grove-keeper',
+    name: 'Custode del Bosco',
+    role: 'Guardiano del Bosco Sommerso',
+    x: 88,
+    z: 2,
+    service: 'grove',
+  },
+  {
+    id: 'grove-altar',
+    name: 'Altare Sommerso',
+    role: 'Tocca la reliquia',
+    x: 108,
+    z: -12,
+    service: 'grove',
+  },
 ] as const;
 export type NpcId = (typeof NPCS)[number]['id'];
 export function nearbyNpc(x: number, z: number) {
@@ -128,6 +144,32 @@ export interface ChatMessage {
   text: string;
   channel: 'GLOBAL' | 'GUILD';
   at: number;
+}
+/** Player-to-player trade: both must stay within this distance for the session to survive. */
+export const TRADE_RANGE = 4.5;
+export interface TradeItemView {
+  id: string;
+  name: string;
+  icon: string;
+  rarity: string;
+  quantity: number;
+  upgradeLevel?: number;
+}
+export interface TradeView {
+  id: string;
+  partnerName: string;
+  partnerClass: HeroClass;
+  myOffer: TradeItemView[];
+  theirOffer: TradeItemView[];
+  myGold: number;
+  theirGold: number;
+  myReady: boolean;
+  theirReady: boolean;
+}
+export interface TradeRequestView {
+  id: string;
+  fromName: string;
+  fromClass: HeroClass;
 }
 export const ABILITIES = {
   SLASH: {

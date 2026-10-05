@@ -292,6 +292,39 @@ try {
   b.onMessage('rpg', (s: RPGSnapshot) => (recruit = s));
   b.send('rpg-request');
   await until(() => !!recruit, 'Recruit inventory missing');
+  // Player-to-player trade: the founder sends 10 gold to the recruit.
+  type TradeMsg = {
+    id: string;
+    myGold: number;
+    theirGold: number;
+    myReady: boolean;
+    theirReady: boolean;
+  } | null;
+  let incomingTrade: { id: string; fromName: string } | undefined,
+    tradeA: TradeMsg | undefined,
+    tradeB: TradeMsg | undefined;
+  a.onMessage('trade', (v: TradeMsg) => (tradeA = v));
+  b.onMessage('trade', (v: TradeMsg) => (tradeB = v));
+  b.onMessage('trade-request', (r: { id: string; fromName: string }) => (incomingTrade = r));
+  const founderGold = a.state.players.get(a.sessionId)!.gold;
+  const recruitGold = b.state.players.get(b.sessionId)!.gold;
+  a.send('trade', { action: 'request', target: b.sessionId });
+  await until(() => !!incomingTrade, 'Trade invite was not delivered');
+  b.send('trade', { action: 'accept', id: incomingTrade!.id });
+  await until(() => !!tradeA && !!tradeB, 'Trade session did not open');
+  a.send('trade', { action: 'gold', id: tradeA!.id, amount: 10 });
+  await until(
+    () => tradeA!.myGold === 10 && tradeB!.theirGold === 10,
+    'Gold offer did not synchronize',
+  );
+  a.send('trade', { action: 'ready', id: tradeA!.id });
+  b.send('trade', { action: 'ready', id: tradeB!.id });
+  await until(
+    () => b!.state.players.get(b!.sessionId)!.gold === recruitGold + 10,
+    'Recruit did not receive the traded gold',
+  );
+  assert.equal(a.state.players.get(a.sessionId)!.gold, founderGold - 10, 'Founder paid the gold');
+  await until(() => tradeA === null, 'Trade did not close after commit');
   b.send('clan', { action: 'request', clanId: '__proto__' });
   await delay(80);
   b.send('clan', { action: 'accept', profileId: profileId });
@@ -319,7 +352,7 @@ try {
     'Equip must restore real stats',
   );
   console.log(
-    'PASS: original running, authoritative combat, Guardian skills, NPC quest/loot, inventory ownership, clan creation and character persistence.',
+    'PASS: original running, authoritative combat, Guardian skills, NPC quest/loot, inventory ownership, player-to-player trade, clan creation and character persistence.',
   );
   console.log(
     'PASS: two clients, server-limited movement, state synchronization, malformed input, slash/skill cooldowns, idle stop, leave cleanup, dummy defeat and respawn.',

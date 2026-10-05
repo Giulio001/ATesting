@@ -1,7 +1,9 @@
 import * as T from 'three';
-import { OBSTACLES, DUMMY, CUSTODIAN, NPCS, FRONTIER } from '@aetheria/shared';
-import { paintedTexture } from './Art';
-import { decorateHouse, decoratePlaza } from './LumengateDecor';
+import { OBSTACLES, DUMMY, NPCS, FRONTIER, GROVE } from '@aetheria/shared';
+import { configureTextures, paintedTexture, tiled, tiledBump } from './Art';
+import { decoratePlaza } from './LumengateDecor';
+import { buildTown, type Materials } from './Architecture';
+import { SUN_DIRECTION, SKY_LOOKS, applySkyLook, createSky, type Region } from '../engine/SkyEnv';
 const material = (color: number, metalness = 0, roughness = 0.85) =>
   new T.MeshStandardMaterial({ color, metalness, roughness, flatShading: true });
 const stone = material(0x59656a),
@@ -26,25 +28,30 @@ export class World {
   private particles: T.Points;
   private water?: T.Mesh;
   private rift = new T.Group();
-  private custodian = new T.Group();
   private occluders: T.Mesh[] = [];
   private occlusionRay = new T.Raycaster();
   private flameLights: T.PointLight[] = [];
   private sun!: T.DirectionalLight;
   private frontierCrystal = new T.Group();
+  private groveRelic = new T.Group();
   private fountainHalo = new T.Group();
+  private sky = createSky();
+  private cityMaterials!: Materials;
   constructor() {
-    this.scene.background = new T.Color(0x536d82);
-    this.scene.fog = new T.FogExp2(0x536d82, 0.017);
-    this.scene.add(new T.HemisphereLight(0xc9dcdf, 0x3b443d, 1.45));
+    // A real sky dome plus a sky-baked environment probe: the biggest single
+    // reason Lumengate no longer reads as a flat indoor diorama.
+    this.scene.add(this.sky);
+    this.scene.background = new T.Color(SKY_LOOKS.lumengate.fogColor);
+    this.scene.fog = new T.FogExp2(SKY_LOOKS.lumengate.fogColor, SKY_LOOKS.lumengate.fog);
+    this.scene.add(new T.HemisphereLight(0xcfe3f2, 0x47513c, 0.9));
     stone.map = paintedTexture('stone');
     stone.bumpMap = stone.map;
     stone.bumpScale = 0.07;
     roof.map = paintedTexture('roof');
     roof.bumpMap = roof.map;
     roof.bumpScale = 0.04;
-    const sun = (this.sun = new T.DirectionalLight(0xffe9bf, 3.1));
-    sun.position.set(-12, 23, 10);
+    const sun = (this.sun = new T.DirectionalLight(0xfff0d0, 3.35));
+    sun.position.copy(SUN_DIRECTION).multiplyScalar(48);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -28;
@@ -54,47 +61,32 @@ export class World {
     sun.shadow.normalBias = 0.035;
     sun.shadow.bias = -0.00015;
     this.scene.add(sun, sun.target);
-    const fill = new T.DirectionalLight(0x86b5dc, 1.3);
-    fill.position.set(16, 9, -15);
+    const fill = new T.DirectionalLight(0x9cc2e8, 0.85);
+    fill.position.set(18, 11, -16);
     this.scene.add(fill);
-    this.mesh(
-      new T.CylinderGeometry(36, 38, 2, 64),
-      new T.MeshStandardMaterial({ color: 0x77967c, map: paintedTexture('grass'), roughness: 1 }),
-      this.scene,
-      0,
-      -1.04,
-      0,
-    );
-    this.mesh(new T.CylinderGeometry(10, 10, 0.08, 64), stone, this.scene, 0, -0.12, 0);
-    // A single instanced draw for the hand-laid paving stones.
-    const paving = new T.InstancedMesh(
-      new T.BoxGeometry(0.93, 0.06, 0.93),
-      material(0x6f7c7e),
-      841,
-    );
-    const transform = new T.Object3D();
-    let idx = 0;
-    for (let x = -14; x <= 14; x++)
-      for (let z = -14; z <= 14; z++) {
-        transform.position.set(x, -0.04, z);
-        transform.rotation.y = 0;
-        transform.updateMatrix();
-        paving.setMatrixAt(idx, transform.matrix);
-        const noise = this.noise(x + 22, z + 33);
-        const plaza = Math.hypot(x, z) < 8;
-        paving.setColorAt(
-          idx++,
-          new T.Color().setHSL(
-            plaza ? 0.12 : 0.53,
-            plaza ? 0.12 : 0.08,
-            (plaza ? 0.37 : 0.25) + noise * 0.1,
-          ),
-        );
-      }
-    paving.receiveShadow = true;
-    this.scene.add(paving);
+    // Smooth turf ring with a soft verge instead of a grid of square tiles.
+    const turf = new T.MeshStandardMaterial({
+      color: 0x8ba279,
+      map: tiled('grass', 26, 26),
+      bumpMap: tiledBump('grass', 26, 26),
+      bumpScale: 0.05,
+      roughness: 1,
+    });
+    // The vertical rim gets its own well-proportioned material, otherwise the
+    // 2.4 m band would smear the grass map into vertical streaks.
+    const verge = new T.MeshStandardMaterial({
+      color: 0x6d6045,
+      map: tiled('dirt', 48, 2),
+      bumpMap: tiledBump('dirt', 48, 2),
+      bumpScale: 0.08,
+      roughness: 1,
+    });
+    this.mesh(new T.CylinderGeometry(38, 41.5, 2.4, 96, 1, true), verge, this.scene, 0, -1.25, 0);
+    const turfFloor = this.mesh(new T.CircleGeometry(41.5, 96), turf, this.scene, 0, -0.06, 0);
+    turfFloor.rotation.x = -Math.PI / 2;
+    turfFloor.receiveShadow = true;
     decoratePlaza(this.scene);
-    const ring = this.mesh(new T.RingGeometry(7.7, 7.85, 96), gold, this.scene, 0, 0.012, 0);
+    const ring = this.mesh(new T.RingGeometry(7.7, 7.85, 96), gold, this.scene, 0, 0.062, 0);
     ring.rotation.x = -Math.PI / 2;
     for (let a = 0; a < 8; a++) {
       const rune = this.mesh(
@@ -102,44 +94,13 @@ export class World {
         gold,
         this.scene,
         Math.sin((a * Math.PI) / 4) * 7.1,
-        0.009,
+        0.06,
         Math.cos((a * Math.PI) / 4) * 7.1,
       );
       rune.rotation.y = (a * Math.PI) / 4;
     }
-    for (const o of OBSTACLES) {
-      const g = new T.Group();
-      g.position.set(o.x, 0, o.z);
-      this.scene.add(g);
-      if (o.kind === 'house') {
-        this.house(g, o.hx, o.hz, o.height);
-        decorateHouse(g, o.hx, o.hz, o.height);
-        this.addOccluder(g);
-      }
-      if (o.kind === 'wall') {
-        if (o.x >= 24)
-          this.mesh(new T.BoxGeometry(o.hx * 2, o.height, o.hz * 2), dark, g, 0, o.height / 2);
-        else this.tower(g);
-      }
-      if (o.kind === 'tree') this.tree(g, o.height);
-      if (o.kind === 'rock') {
-        const r = this.mesh(new T.DodecahedronGeometry(o.height), stone, g, 0, o.height * 0.4, 0);
-        r.scale.set(0.85, 0.7, 0.75);
-        r.rotation.set(0.3, o.x, 0.2);
-      }
-      if (o.kind === 'shrine') this.shrine(g);
-      if (o.kind === 'well') this.fountain(g);
-      if (o.kind === 'gate') {
-        this.mesh(new T.CylinderGeometry(0.55, 0.7, 4.8, 8), stone, g, 0, 2.4);
-        this.addOccluder(g);
-      }
-    }
+    this.buildObstacles('base');
     // Background walls and distant citadel stay outside the playable square.
-    for (let x = -25; x <= 25; x += 5) {
-      this.mesh(new T.BoxGeometry(4.85, 3.7, 1.4), dark, this.scene, x, 1.85, -25);
-      for (let dx = -1.8; dx < 2.1; dx += 1.2)
-        this.mesh(new T.BoxGeometry(0.6, 0.6, 1.4), stone, this.scene, x + dx, 4, -25);
-    }
     for (let i = 0; i < 5; i++) {
       const g = new T.Group();
       g.position.set((i - 2) * 8, 0, -31 - Math.abs(i - 2) * 2);
@@ -156,28 +117,10 @@ export class World {
       [4, -15],
     ])
       this.lantern(x, z);
-    const plants = new T.InstancedMesh(new T.ConeGeometry(0.17, 0.65, 3), material(0x526b62), 120);
-    let plantCount = 0;
-    for (let i = 0; i < 120; i++) {
-      const a = i * 2.399,
-        r = 15.5 + this.noise(i, 31) * 8.2;
-      const x = Math.cos(a) * r,
-        z = Math.sin(a) * r;
-      if (OBSTACLES.some((o) => Math.abs(x - o.x) < o.hx + 1 && Math.abs(z - o.z) < o.hz + 1))
-        continue;
-      transform.position.set(x, 0.26, z);
-      transform.rotation.y = a;
-      transform.updateMatrix();
-      plants.setMatrixAt(plantCount, transform.matrix);
-      plants.setColorAt(plantCount++, new T.Color(i % 4 === 0 ? 0x859c92 : 0x526b62));
-    }
-    plants.count = plantCount;
-    plants.castShadow = true;
-    plants.receiveShadow = true;
-    this.scene.add(plants);
     this.makeDummy();
     this.details();
     this.makeFrontier();
+    this.makeGrove();
     const geometry = new T.BufferGeometry();
     const positions = new Float32Array(150 * 3);
     for (let i = 0; i < 150; i++) {
@@ -198,22 +141,116 @@ export class World {
     );
     this.scene.add(this.particles);
   }
+  /**
+   * Raised, curved, textured Lumengate: procedural architecture replaces the
+   * blocky hex kit so the city reads like a real medieval town.
+   */
+  async loadCity(low: boolean, onProgress?: (ratio: number) => void) {
+    onProgress?.(0.2);
+    configureTextures(low);
+    const occluders: T.Object3D[] = [];
+    this.cityMaterials = buildTown(this.scene, occluders, low);
+    for (const root of occluders) this.addOccluder(root);
+    // Wall colliders outside the rampart square still need visible masonry.
+    for (const o of OBSTACLES) {
+      if (o.kind !== 'wall') continue;
+      if (Math.abs(o.x - 24.6) < 7 || Math.abs(o.x + 24.6) < 7) continue;
+      const pier = new T.Group();
+      pier.position.set(o.x, 0, o.z);
+      this.scene.add(pier);
+      this.buildWallPier(pier, o.hx, o.hz, o.height);
+      this.addOccluder(pier);
+    }
+    onProgress?.(1);
+  }
+  /** Round stone bastion for the isolated wall colliders near the north gate. */
+  private buildWallPier(parent: T.Object3D, hx: number, hz: number, height: number) {
+    const mats = this.cityMaterials,
+      radius = Math.min(hx, hz) * 0.85;
+    this.mesh(
+      new T.CylinderGeometry(radius * 0.92, radius * 1.2, height * 0.88, 18, 1),
+      mats.stone,
+      parent,
+      0,
+      height * 0.44,
+    );
+    this.mesh(
+      new T.CylinderGeometry(radius * 1.34, radius * 1.44, height * 0.09, 18, 1),
+      mats.stoneWarm,
+      parent,
+      0,
+      height * 0.045,
+    );
+    this.mesh(
+      new T.CylinderGeometry(radius * 1.3, radius * 1.16, height * 0.08, 18, 1),
+      mats.stoneWarm,
+      parent,
+      0,
+      height * 0.92,
+    );
+    this.mesh(
+      new T.ConeGeometry(radius * 1.34, height * 0.4, 20),
+      mats.slate,
+      parent,
+      0,
+      height * 1.08,
+    );
+    const lamp = this.mesh(
+      new T.SphereGeometry(radius * 0.22, 12, 10),
+      mats.brass,
+      parent,
+      0,
+      height * 0.62,
+      radius * 1.02,
+    );
+    lamp.castShadow = false;
+  }
+  private buildObstacles(mode: 'base' | 'scenery') {
+    for (const o of OBSTACLES) {
+      const scenery =
+        o.kind === 'house' || o.kind === 'wall' || o.kind === 'tree' || o.kind === 'rock';
+      if ((mode === 'scenery') !== scenery) continue;
+      const g = new T.Group();
+      g.position.set(o.x, 0, o.z);
+      this.scene.add(g);
+      if (o.kind === 'wall') {
+        if (o.x >= 24)
+          this.mesh(new T.BoxGeometry(o.hx * 2, o.height, o.hz * 2), dark, g, 0, o.height / 2);
+        else this.tower(g);
+      }
+      if (o.kind === 'tree') this.tree(g, o.height);
+      if (o.kind === 'rock') {
+        const r = this.mesh(new T.DodecahedronGeometry(o.height), stone, g, 0, o.height * 0.4, 0);
+        r.scale.set(0.85, 0.7, 0.75);
+        r.rotation.set(0.3, o.x, 0.2);
+      }
+      if (o.kind === 'shrine') this.shrine(g);
+      if (o.kind === 'well') this.fountain(g);
+      if (o.kind === 'gate') {
+        this.mesh(new T.CylinderGeometry(0.55, 0.7, 4.8, 8), stone, g, 0, 2.4);
+        this.addOccluder(g);
+      }
+    }
+  }
   private makeFrontier() {
     const grass = new T.MeshStandardMaterial({
       color: 0x645f72,
       map: paintedTexture('grass'),
       roughness: 1,
     });
-    this.mesh(new T.BoxGeometry(48, 1.8, 50), grass, this.scene, 54, -0.95);
-    const bridge = new T.Group();
-    bridge.position.set(27, 0, 0);
-    this.scene.add(bridge);
-    this.mesh(new T.BoxGeometry(12, 0.22, 6), stone, bridge, 0, -0.14);
-    for (const z of [-3, 3]) {
-      this.mesh(new T.BoxGeometry(12, 0.3, 0.22), dark, bridge, 0, 0.8, z);
-      for (let i = -5; i <= 5; i += 2)
-        this.mesh(new T.BoxGeometry(0.28, 0.9, 0.28), gold, bridge, i, 0.4, z);
-    }
+    // The frontier biome and the outer ring of woodland both need solid ground:
+    // a wide corrupted plain to the east and a lower meadow backing the walls.
+    this.mesh(new T.BoxGeometry(150, 2, 300), grass, this.scene, 112, -1.05);
+    const meadowMap = paintedTexture('grass').clone();
+    meadowMap.needsUpdate = true;
+    meadowMap.repeat.set(38, 72);
+    this.mesh(
+      new T.BoxGeometry(180, 2, 300),
+      new T.MeshStandardMaterial({ color: 0x6f8f74, map: meadowMap, roughness: 1 }),
+      this.scene,
+      -52,
+      -1.07,
+    );
     const path = new T.InstancedMesh(new T.BoxGeometry(0.8, 0.06, 0.9), stone, 102);
     const transform = new T.Object3D();
     let index = 0;
@@ -307,11 +344,91 @@ export class World {
     this.scene.add(foliage);
   }
   followRegion(x: number, z: number) {
-    this.sun.position.set(x - 12, 23, z + 10);
+    this.sun.position.set(x + SUN_DIRECTION.x * 48, SUN_DIRECTION.y * 48, z + SUN_DIRECTION.z * 48);
     this.sun.target.position.set(x, 0, z);
-    const frontier = x >= 30;
-    (this.scene.background as T.Color).lerp(new T.Color(frontier ? 0x5a536c : 0x536d82), 0.04);
-    (this.scene.fog as T.FogExp2).color.copy(this.scene.background as T.Color);
+    const region: Region = x >= 86 ? 'grove' : x >= 30 ? 'frontier' : 'lumengate';
+    const look = SKY_LOOKS[region];
+    const background = this.scene.background as T.Color,
+      fog = this.scene.fog as T.FogExp2;
+    background.lerp(new T.Color(look.fogColor), 0.04);
+    fog.color.copy(background);
+    fog.density = T.MathUtils.lerp(fog.density, look.fog, 0.03);
+    applySkyLook(this.sky, look);
+  }
+  /** Third region: a flooded, ruined woodland east of the Bleeding Lands. */
+  private makeGrove() {
+    const swamp = new T.MeshStandardMaterial({
+      color: 0x2f5f57,
+      transparent: true,
+      opacity: 0.5,
+      roughness: 0.25,
+      metalness: 0.1,
+    });
+    const pool = new T.Group();
+    pool.position.set(GROVE.altar.x, 0, GROVE.altar.z);
+    this.scene.add(pool);
+    const sheet = this.mesh(new T.CircleGeometry(22, 48), swamp, pool, 0, 0.02);
+    sheet.rotation.x = -Math.PI / 2;
+    for (let i = 0; i < 26; i++) {
+      const a = (i / 26) * Math.PI * 2 + this.noise(i, 3) * 0.5;
+      const r = 12 + this.noise(i, 17) * 33;
+      const g = new T.Group();
+      g.position.set(92 + Math.sin(a) * r * 0.7, 0, (this.noise(i, 31) - 0.5) * 40);
+      this.scene.add(g);
+      this.tree(g, 3.4 + this.noise(i, 5) * 3.4);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const column = this.mesh(
+        new T.CylinderGeometry(0.35, 0.5, 1.6 + (i % 3) * 0.6, 7),
+        stone,
+        this.scene,
+        GROVE.altar.x + Math.sin(a) * 5.4,
+        0.8,
+        GROVE.altar.z + Math.cos(a) * 5.4,
+      );
+      column.rotation.z = Math.sin(i) * 0.18;
+      column.rotation.x = Math.cos(i * 1.7) * 0.14;
+    }
+    const altar = new T.Group();
+    altar.position.set(GROVE.altar.x, 0, GROVE.altar.z);
+    this.scene.add(altar);
+    this.mesh(new T.CylinderGeometry(1.5, 1.9, 0.5, 8), dark, altar, 0, 0.25);
+    this.groveRelic.position.y = 2.2;
+    altar.add(this.groveRelic);
+    this.mesh(new T.OctahedronGeometry(0.75), glow, this.groveRelic).scale.y = 1.6;
+    const light = new T.PointLight(0x74e6b0, 6, 12);
+    light.position.y = 2.4;
+    altar.add(light);
+    const ring = this.mesh(new T.RingGeometry(1.9, 2.4, 48), glow, altar, 0, 0.03);
+    ring.rotation.x = -Math.PI / 2;
+    const arena = new T.Group();
+    arena.position.set(GROVE.boss.x, 0, GROVE.boss.z);
+    this.scene.add(arena);
+    const seal = this.mesh(new T.RingGeometry(4.6, 5, 64), glow, arena, 0, 0.02);
+    seal.rotation.x = -Math.PI / 2;
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const column = this.mesh(
+        new T.CylinderGeometry(0.22, 0.34, 1.2 + (i % 3) * 0.5, 6),
+        stone,
+        arena,
+        Math.sin(angle) * 5.2,
+        0.6 + (i % 3) * 0.25,
+        Math.cos(angle) * 5.2,
+      );
+      column.rotation.z = Math.sin(i) * 0.14;
+    }
+    const reeds = new T.InstancedMesh(new T.ConeGeometry(0.09, 0.9, 4), material(0x4c8a6a), 220);
+    const transform = new T.Object3D();
+    for (let i = 0; i < 220; i++) {
+      transform.position.set(88 + this.noise(i, 61) * 50, 0.3, (this.noise(i, 79) - 0.5) * 48);
+      transform.rotation.y = i * 1.7;
+      transform.scale.setScalar(0.7 + this.noise(i, 5) * 0.9);
+      transform.updateMatrix();
+      reeds.setMatrixAt(i, transform.matrix);
+    }
+    this.scene.add(reeds);
   }
   private noise(x: number, z: number) {
     const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
@@ -540,50 +657,6 @@ export class World {
     const light = new T.PointLight(0xa576e6, 5, 9);
     light.position.y = 1.8;
     this.rift.add(light);
-    // Ser Aurel: an original robed custodian with a luminous staff.
-    this.custodian.position.set(CUSTODIAN.x, 0, CUSTODIAN.z);
-    this.custodian.rotation.y = 0.5;
-    this.scene.add(this.custodian);
-    const robes = material(0x3b526b),
-      skin = material(0xc7ab87);
-    this.mesh(new T.ConeGeometry(0.37, 1.25, 8), robes, this.custodian, 0, 0.66);
-    this.mesh(new T.SphereGeometry(0.21, 12, 8), skin, this.custodian, 0, 1.6, 0.04);
-    const hood = this.mesh(
-      new T.SphereGeometry(0.27, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.58),
-      robes,
-      this.custodian,
-      0,
-      1.66,
-      -0.025,
-    );
-    hood.rotation.x = -0.15;
-    this.mesh(new T.BoxGeometry(0.045, 0.75, 0.1), gold, this.custodian, 0, 1, 0.27);
-    for (const sign of [-1, 1]) {
-      const arm = this.mesh(
-        new T.CapsuleGeometry(0.12, 0.4, 4, 8),
-        robes,
-        this.custodian,
-        sign * 0.3,
-        1.15,
-      );
-      arm.rotation.z = sign * 0.25;
-      this.mesh(new T.SphereGeometry(0.11, 8, 8), skin, this.custodian, sign * 0.37, 0.91, 0.08);
-    }
-    this.mesh(new T.CylinderGeometry(0.035, 0.04, 1.85, 8), gold, this.custodian, 0.48, 1);
-    this.mesh(new T.OctahedronGeometry(0.14), glow, this.custodian, 0.48, 1.98);
-    for (const service of NPCS.slice(1)) {
-      if (service.id === 'frontier-beacon') continue;
-      const { x, z } = service;
-      const color =
-        service.service === 'forge' ? 0x935e43 : service.service === 'clan' ? 0x675082 : 0x706144;
-      const npc = this.custodian.clone(true);
-      npc.position.set(x, 0, z);
-      npc.rotation.y = x < 0 ? 0.4 : -0.5;
-      npc.traverse((o) => {
-        if (o instanceof T.Mesh && o.material === robes) o.material = material(color);
-      });
-      this.scene.add(npc);
-    }
     const smith = NPCS.find((npc) => npc.id === 'blacksmith')!;
     const anvil = new T.Group();
     anvil.position.set(smith.x - 1, 0, smith.z - 1.2);
@@ -762,10 +835,14 @@ export class World {
       if (object instanceof T.Mesh) {
         const materials = Array.isArray(object.material) ? object.material : [object.material];
         for (const material of materials) {
-          if (material instanceof T.MeshStandardMaterial && material.map) {
-            material.map.anisotropy = low ? 1 : 4;
-            material.map.needsUpdate = true;
+          if (!(material instanceof T.MeshStandardMaterial)) continue;
+          for (const texture of [material.map, material.bumpMap]) {
+            if (!texture) continue;
+            texture.anisotropy = low ? 1 : 4;
+            texture.needsUpdate = true;
           }
+          const base = material.userData.bumpScale as number | undefined;
+          if (typeof base === 'number') material.bumpScale = low ? base * 0.4 : base;
         }
       }
     });
@@ -774,12 +851,13 @@ export class World {
     this.fountainHalo.rotation.y = time * 0.3;
     this.frontierCrystal.rotation.y = time * 0.55;
     this.frontierCrystal.position.y = 2.1 + Math.sin(time * 2) * 0.12;
+    this.groveRelic.rotation.y = time * 0.4;
+    this.groveRelic.position.y = 2.2 + Math.sin(time * 1.8) * 0.16;
     this.portal.rotation.y = time * 0.28;
     this.portal.position.y = 2.7 + Math.sin(time * 1.4) * 0.12;
     this.particles.rotation.y = time * 0.012;
     this.rift.rotation.y = time * -0.16;
     this.rift.position.y = 0.8 + Math.sin(time * 1.2) * 0.08;
-    this.custodian.rotation.y = Math.sin(time * 0.6) * 0.06;
     if (this.water) this.water.rotation.z = time * 0.06;
     this.flameLights.forEach((l, i) => (l.intensity = 3 + Math.sin(time * 4 + i) * 0.3));
     this.dummy.scale.y = T.MathUtils.lerp(this.dummy.scale.y, hp <= 0 ? 0.15 : 1, 0.1);

@@ -1,1 +1,13 @@
-{ "warrior": null }
+{
+  "characters": {
+    "warrior": { "url": "./assets/characters/warrior/warrior.glb", "height": 1.85 },
+    "archer": { "url": "./assets/characters/archer/archer.glb", "height": 1.85 },
+    "mage": { "url": "./assets/characters/mage/mage.glb", "height": 1.85 }
+  },
+  "enemies": {
+    "minion": { "url": "./assets/enemies/minion/minion.glb", "height": 1.7 },
+    "brute": { "url": "./assets/enemies/warrior/warrior.glb", "height": 2.05 },
+    "stalker": { "url": "./assets/enemies/rogue/rogue.glb", "height": 1.78 },
+    "caster": { "url": "./assets/enemies/mage/mage.glb", "height": 2.25 }
+  }
+}

@@ -16,6 +16,7 @@ import {
   type CombatEvent,
 } from '@aetheria/shared';
 import { RPGSystem } from '../rpg/RPGSystem.ts';
+import { TradeSystem } from '../rpg/TradeSystem.ts';
 import { ABILITIES, nearbyNpc, type AbilityId } from '@aetheria/shared';
 import { EncounterSystem } from '../world/EncounterSystem.ts';
 import { ProjectileSystem } from '../world/ProjectileSystem.ts';
@@ -37,6 +38,7 @@ export class LumengateRoom extends Room<WorldState> {
   private sessions = new Map<string, Session>();
   private encounters!: EncounterSystem;
   private rpg!: RPGSystem;
+  private trades!: TradeSystem;
   private projectiles!: ProjectileSystem;
   private static rooms = new Set<LumengateRoom>();
   private lastSave = 0;
@@ -67,9 +69,13 @@ export class LumengateRoom extends Room<WorldState> {
         this.rpg.send(id);
       },
       frontierReward: (id) => this.rpg.frontierReward(id),
+      groveReward: (id) => this.rpg.groveReward(id),
       loot: (id, elite) => this.rpg.loot(id, elite),
       dialogue: (id, e) => this.clients.find((c) => c.sessionId === id)?.send('dialogue', e),
     });
+    this.trades = new TradeSystem(this.state, this.rpg, (id, type, value) =>
+      this.clients.find((c) => c.sessionId === id)?.send(type, value),
+    );
     this.setPatchRate(1000 / 15);
     this.projectiles = new ProjectileSystem({
       alive: (id) => (this.state.players.get(id)?.hp ?? 0) > 0,
@@ -138,7 +144,7 @@ export class LumengateRoom extends Room<WorldState> {
       s.lastInteract = now;
       const p = this.state.players.get(client.sessionId)!;
       const npc = nearbyNpc(p.x, p.z);
-      if (npc?.service === 'quest' || npc?.service === 'frontier') {
+      if (npc?.service === 'quest' || npc?.service === 'frontier' || npc?.service === 'grove') {
         this.encounters.interact(client.sessionId);
         this.rpg.checkpoint(client.sessionId);
         this.rpg.send(client.sessionId);
@@ -149,6 +155,11 @@ export class LumengateRoom extends Room<WorldState> {
     });
     this.onMessage('frontier-answer', (client, value) => {
       this.encounters.answerFrontier(client.sessionId, value);
+      this.rpg.checkpoint(client.sessionId);
+      this.rpg.send(client.sessionId);
+    });
+    this.onMessage('grove-answer', (client, value) => {
+      this.encounters.answerGrove(client.sessionId, value);
       this.rpg.checkpoint(client.sessionId);
       this.rpg.send(client.sessionId);
     });
@@ -206,6 +217,7 @@ export class LumengateRoom extends Room<WorldState> {
     this.onMessage('forge', (c, v) => this.rpg.forge(c.sessionId, v));
     this.onMessage('class', (c, v) => this.rpg.selectClass(c.sessionId, v));
     this.onMessage('clan', (c, v) => this.rpg.clan(c.sessionId, v));
+    this.onMessage('trade', (c, v) => this.trades.handle(c.sessionId, v));
     this.onMessage('chat', (c, v) => {
       const chat = this.rpg.chat(c.sessionId, v);
       if (!chat) return;
@@ -255,6 +267,7 @@ export class LumengateRoom extends Room<WorldState> {
   onLeave(client: Client) {
     const s = this.sessions.get(client.sessionId);
     if (s) this.physics.remove(s.physics);
+    this.trades?.leave(client.sessionId);
     this.rpg.leave(client.sessionId);
     this.sessions.delete(client.sessionId);
     this.encounters.leave(client.sessionId);
@@ -294,6 +307,7 @@ export class LumengateRoom extends Room<WorldState> {
       p.z = t.z;
     }
     this.encounters.tick(now);
+    this.trades.tick(now);
     this.projectiles.tick(DT, now);
     if (now - this.lastSave > 5000) {
       this.lastSave = now;

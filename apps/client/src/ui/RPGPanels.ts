@@ -19,9 +19,15 @@ import {
   FRONTIER_TITLES,
   FRONTIER_STORY,
   frontierObjective,
+  GROVE_TITLES,
+  GROVE_STORY,
+  groveObjective,
   HERO_CLASSES,
   heroClass,
   classAbilities,
+  TRADE_RANGE,
+  type TradeView,
+  type TradeRequestView,
   type RPGSnapshot,
   type Item,
   type ChatMessage,
@@ -55,6 +61,8 @@ export class RPGPanels {
   private salvageConfirmation = '';
   private messages: ChatMessage[] = [];
   private channel: 'GLOBAL' | 'GUILD' = 'GLOBAL';
+  private trade?: TradeView;
+  private tradeReq?: TradeRequestView;
   private root = document.getElementById('rpg-overlay')!;
   private title = document.getElementById('panel-title')!;
   private content = document.getElementById('panel-content')!;
@@ -66,7 +74,10 @@ export class RPGPanels {
   get isOpen() {
     return this.panel !== '';
   }
-  constructor(private player: () => PlayerState | undefined) {
+  constructor(
+    private player: () => PlayerState | undefined,
+    private nearbyPlayers: () => Iterable<[string, PlayerState]> = () => [],
+  ) {
     document
       .querySelectorAll<HTMLElement>('[data-open]')
       .forEach((b) => b.addEventListener('click', () => this.open(b.dataset.open!)));
@@ -154,6 +165,22 @@ export class RPGPanels {
     this.salvageConfirmation = '';
     if (this.isOpen) this.render();
   }
+  /** A refreshed trade view (or null once it closes). */
+  tradeUpdate(view: TradeView | null) {
+    this.tradeReq = undefined;
+    if (!view) {
+      this.trade = undefined;
+      if (this.panel === 'trade') this.close();
+      return;
+    }
+    this.trade = view;
+    this.open('trade');
+  }
+  tradeRequest(request: TradeRequestView) {
+    this.trade = undefined;
+    this.tradeReq = request;
+    this.open('trade');
+  }
   open(panel: string) {
     if (!document.body.classList.contains('playing')) return;
     this.panel = panel;
@@ -179,6 +206,7 @@ export class RPGPanels {
       shop: 'QUARTIERMASTRO',
       forge: 'FORGIA',
       map: 'MINIMAPPA',
+      trade: 'SCAMBIO',
       settings: 'OPZIONI',
     };
     this.title.textContent = titles[this.panel] ?? 'AETHERIA';
@@ -192,6 +220,7 @@ export class RPGPanels {
     else if (this.panel === 'shop') this.shop();
     else if (this.panel === 'forge') this.forge();
     else if (this.panel === 'map') this.map();
+    else if (this.panel === 'trade') this.tradePanel();
     else if (this.panel === 'settings') this.settings();
     else this.menu();
   }
@@ -257,6 +286,8 @@ export class RPGPanels {
     ];
     this.content.innerHTML = `<article class="quest-entry"><small>LUMENGATE · ${state === 3 ? 'COMPLETATA' : state === 0 ? 'DA ACCETTARE' : 'IN CORSO'}</small><h3>Il primo giuramento</h3><p>${lines[state]}</p><div class="quest-meter"><i style="width:${((p?.questKills ?? 0) / 3) * 100}%"></i></div><p>Schegge sconfitte: ${p?.questKills ?? 0} / 3</p><strong>Ricompensa: 75 oro + 100 EXP</strong><p>Interagisci con il custode premendo E o il pulsante PARLA.</p></article>`;
     this.content.innerHTML += `<article class="quest-entry"><small>TERRE SANGUINANTI · ${p?.frontierState === 5 ? 'COMPLETATA' : p?.frontierState ? 'IN CORSO' : 'DA ACCETTARE'}</small><h3>${FRONTIER_TITLES[p?.frontierState ?? 0]}</h3><p>${frontierObjective(p?.frontierState ?? 0, p?.frontierKills ?? 0)}</p><p>Creature corrotte: ${p?.frontierKills ?? 0} / 5</p><strong>Ricompensa: ${FRONTIER_STORY.reward.gold} oro · ${FRONTIER_STORY.reward.xp} EXP · 10 polvere · 2 pozioni · 2 Gelatine Eteree</strong><p>Il ponte a est collega Lumengate alla Frontiera. Il faro conserva l’indizio; il Campione difende la radura orientale.</p></article>`;
+    if ((p?.frontierState ?? 0) >= 5 || (p?.groveState ?? 0) > 0)
+      this.content.innerHTML += `<article class="quest-entry"><small>BOSCO SOMMERSO · ${p?.groveState === 5 ? 'COMPLETATA' : 'IN CORSO'}</small><h3>${GROVE_TITLES[p?.groveState ?? 0]}</h3><p>${groveObjective(p?.groveState ?? 0, p?.groveKills ?? 0)}</p><p>Creature annegate: ${p?.groveKills ?? 0} / 6</p><strong>Ricompensa: ${GROVE_STORY.reward.gold} oro · ${GROVE_STORY.reward.xp} EXP · 14 polvere · 3 pozioni · 3 Gelatine Eteree</strong><p>Oltre la Frontiera il fiume ha sommerso un antico bosco. Il Custode del Bosco veglia sull’altare; il Guardiano Annegato custodisce la reliquia.</p></article>`;
   }
   private character() {
     const p = this.player();
@@ -316,6 +347,7 @@ export class RPGPanels {
     const entries = [
       ['inventory', 'Zaino', '0'],
       ['character', 'Personaggio', '1'],
+      ['trade', 'Scambio', '6'],
       ['clan', 'Clan', '3'],
       ['quests', 'Missioni', '4'],
       ['skills', 'Abilità', '5'],
@@ -325,6 +357,49 @@ export class RPGPanels {
     ];
     this.content.innerHTML = `<div class="menu-grid">${entries.map(([panel, name, pos]) => `<button data-open-panel="${panel}"><i class="menu-sprite" style="--sprite-x:${Number(pos) % 4};--sprite-y:${Math.floor(Number(pos) / 4)}"></i><span>${name}</span></button>`).join('')}<button data-return><span class="return-icon">⌂</span><span>Torna in città</span></button></div>`;
   }
+  private tradePanel() {
+    const s = this.snapshot,
+      p = this.player();
+    if (!s || !p) {
+      this.content.textContent = 'Caricamento dello scambio…';
+      return;
+    }
+    if (this.tradeReq && !this.trade) {
+      const req = this.tradeReq;
+      this.content.innerHTML = `<p class="panel-intro"><b>${esc(req.fromName)}</b> · ${CLASS_NAMES[heroClass(req.fromClass)]} vuole scambiare con te. Restate vicini finché lo scambio è aperto.</p><div class="trade-actions"><button class="gold-button" data-trade-accept>Accetta</button><button data-trade-decline>Rifiuta</button></div>`;
+      return;
+    }
+    if (!this.trade) {
+      const rows: string[] = [];
+      for (const [id, other] of this.nearbyPlayers()) {
+        if (other === p || other.hp <= 0) continue;
+        if (Math.hypot(other.x - p.x, other.z - p.z) > TRADE_RANGE) continue;
+        rows.push(
+          `<article class="trade-player"><div><h3>${esc(other.name)}</h3><small>${CLASS_NAMES[heroClass(other.heroClass)]} · Livello ${other.level}</small></div><button data-trade-request="${esc(id)}">Proponi scambio</button></article>`,
+        );
+      }
+      this.content.innerHTML = `<p class="panel-intro">Scambio sicuro fra giocatori: restate vicini, componete l’offerta e confermate entrambi. Oggetti e oro passano solo alla conferma finale.</p>${rows.length ? rows.join('') : '<p>Nessun altro giocatore nelle vicinanze. Avvicinati a un compagno entro 4 metri.</p>'}`;
+      return;
+    }
+    const t = this.trade,
+      offered = new Set(t.myOffer.map((i) => i.id)),
+      equipped = Object.values(s.equipment),
+      bag = s.items.filter((i) => !offered.has(i.id)),
+      slot = (item: Item) => {
+        const blocked = equipped.includes(item.id) || protectedStarterItem(item);
+        return `<button class="item-slot ${item.rarity.toLowerCase()}" data-trade-offer="${esc(item.id)}" ${blocked ? 'disabled' : ''} title="${esc(item.name)}${blocked ? ' · non scambiabile' : ''}">${this.icon(item)}${item.quantity > 1 ? `<b>${item.quantity}</b>` : ''}${item.upgradeLevel ? `<b class="upgrade-badge">+${item.upgradeLevel}</b>` : ''}</button>`;
+      },
+      list = (items: TradeView['myOffer'], mine: boolean) =>
+        items.length
+          ? items
+              .map(
+                (i) =>
+                  `<li><span>${esc(i.name)}${i.upgradeLevel ? ` +${i.upgradeLevel}` : ''}${i.quantity > 1 ? ` ×${i.quantity}` : ''}</span>${mine ? `<button data-trade-retract="${esc(i.id)}" title="Rimuovi">×</button>` : ''}</li>`,
+              )
+              .join('')
+          : '<li class="muted">Nessun oggetto</li>';
+    this.content.innerHTML = `<p class="panel-intro">Scambio con <b>${esc(t.partnerName)}</b> · ${CLASS_NAMES[heroClass(t.partnerClass)]}. Restate entro ${TRADE_RANGE} metri.</p><div class="trade-grid"><section><h3>LA TUA OFFERTA</h3><ul class="trade-list">${list(t.myOffer, true)}</ul><p class="trade-gold-row">Oro offerto <input id="trade-gold" type="number" min="0" max="${p.gold}" value="${t.myGold}"> <button data-trade-gold>Aggiorna</button> <small>Disponibile: ${p.gold}</small></p><h3>SACCA <small>${bag.length} oggetti</small></h3><div class="bag-grid trade-bag">${bag.map(slot).join('') || '<p class="muted">Nessun oggetto disponibile.</p>'}</div></section><section><h3>OFFERTA DI ${esc(t.partnerName.toUpperCase())}</h3><ul class="trade-list">${list(t.theirOffer, false)}</ul><p class="trade-partner-gold">Oro: <b>${t.theirGold}</b></p></section></div><div class="trade-actions"><button class="gold-button" data-trade-ready>${t.myReady ? 'Annulla “pronto”' : 'Sono pronto'}</button><button data-trade-cancel>Annulla scambio</button></div><p class="trade-status">Tu: ${t.myReady ? 'pronto' : 'in attesa'} · ${esc(t.partnerName)}: ${t.theirReady ? 'pronto' : 'in attesa'}</p>`;
+  }
   private map() {
     this.content.innerHTML =
       '<canvas id="large-map" width="540" height="540" aria-label="Mappa di Lumengate"></canvas><p class="map-legend">◆ Guardian · ● Giallo: NPC · ● Rosso: nemici · ◇ Viola: fenditura / faro</p>';
@@ -333,13 +408,34 @@ export class RPGPanels {
     c.drawImage(document.getElementById('minimap') as HTMLCanvasElement, 0, 0, 540, 540);
   }
   private settings() {
-    this.content.innerHTML = `<p>Il livello grafico si cambia dal selettore GRAFICA. Su telefono la modalità automatica sceglie la qualità leggera.</p><p>WASD / joystick: corsa sempre attiva.<br>Spazio / click: attacco. Q / R / F: abilità.<br>H: pozione salute. G: pozione mana. E: interazione.<br>I: zaino. K: abilità. J: missioni. C: clan. M: mappa.<br>Invio: chat. Esc: chiudi.</p><p>Progressi, equipaggiamento e clan sono salvati sul server di ATesting. Il personaggio di questo browser viene riconosciuto tramite una chiave privata salvata localmente.</p>`;
+    this.content.innerHTML = `<p>Il livello grafico si cambia dal selettore GRAFICA. Su telefono la modalità automatica sceglie la qualità leggera.</p><p>WASD / joystick: corsa sempre attiva.<br>Spazio / click: attacco. Q / R / F: abilità.<br>H: pozione salute. G: pozione mana. E: interazione.<br>I: zaino. K: abilità. J: missioni. C: clan. M: mappa. Scambio fra giocatori: Menu → Scambio.<br>Invio: chat. Esc: chiudi.</p><p>Progressi, equipaggiamento e clan sono salvati sul server di ATesting. Il personaggio di questo browser viene riconosciuto tramite una chiave privata salvata localmente.</p>`;
   }
   private click(e: MouseEvent) {
     const b = (e.target as HTMLElement).closest<HTMLElement>('button');
     if (!b) return;
     const d = b.dataset;
     if (d.openPanel) this.open(d.openPanel);
+    else if (d.tradeRequest) this.onSend('trade', { action: 'request', target: d.tradeRequest });
+    else if ('tradeAccept' in d && this.tradeReq)
+      this.onSend('trade', { action: 'accept', id: this.tradeReq.id });
+    else if ('tradeDecline' in d && this.tradeReq) {
+      this.onSend('trade', { action: 'decline', id: this.tradeReq.id });
+      this.tradeReq = undefined;
+      this.render();
+    } else if (d.tradeOffer && this.trade)
+      this.onSend('trade', { action: 'offer', id: this.trade.id, itemId: d.tradeOffer });
+    else if (d.tradeRetract && this.trade)
+      this.onSend('trade', { action: 'retract', id: this.trade.id, itemId: d.tradeRetract });
+    else if ('tradeGold' in d && this.trade)
+      this.onSend('trade', {
+        action: 'gold',
+        id: this.trade.id,
+        amount: Number((document.getElementById('trade-gold') as HTMLInputElement).value),
+      });
+    else if ('tradeReady' in d && this.trade)
+      this.onSend('trade', { action: 'ready', id: this.trade.id });
+    else if ('tradeCancel' in d && this.trade)
+      this.onSend('trade', { action: 'cancel', id: this.trade.id });
     else if (d.class) this.onSend('class', d.class);
     else if (d.item) {
       this.selected = d.item;

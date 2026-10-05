@@ -8,6 +8,8 @@ import {
   QUEST_GOAL,
   xpRequired,
   BATTLE_START,
+  GROVE,
+  GROVE_STORY,
   type DamageEvent,
   type RewardEvent,
 } from '@aetheria/shared';
@@ -149,6 +151,55 @@ test('cooperative contributors receive credit and defeated enemies respawn', asy
     s.encounter.tick(enemy.respawnAt + 1);
     assert.equal(enemy.hp, enemy.maxHp);
     assert.equal(enemy.behavior, 'idle');
+  } finally {
+    s.physics.dispose();
+  }
+});
+
+test('grove quest advances to the altar, gates the guardian and pays out once', async () => {
+  const s = await setup();
+  try {
+    s.hero.x = 88;
+    s.hero.z = 2;
+    s.encounter.interact('hero');
+    assert.equal(s.hero.groveState, 1, 'The keeper offers the sunken grove hunt');
+    s.hero.frontierState = 1;
+    const guardian = s.state.enemies.get('grove-guardian')!;
+    s.hero.x = guardian.x;
+    s.hero.z = guardian.z - 1;
+    for (let i = 0; i < 40; i++) s.encounter.strike('hero', 'slash', 0, 20000 + i * 700);
+    assert.ok(guardian.hp > 0, 'The guardian cannot be wounded before the relic awakens');
+    let now = 60000;
+    for (const spawn of ENEMY_SPAWNS.filter((e) => e.type === 'drowned')) {
+      const enemy = s.state.enemies.get(spawn.id)!;
+      s.hero.x = enemy.x;
+      s.hero.z = enemy.z - 0.3;
+      for (let i = 0; i < 6; i++) s.encounter.strike('hero', 'slash', 0, (now += 700));
+      assert.equal(enemy.hp, 0);
+    }
+    assert.equal(s.hero.groveKills, GROVE.goal);
+    assert.equal(s.hero.groveState, 2);
+    assert.equal(s.hero.frontierKills, 0, 'Grove kills never feed the frontier chapter');
+    s.hero.x = GROVE.altar.x;
+    s.hero.z = GROVE.altar.z;
+    s.encounter.answerGrove('hero', 'relic');
+    assert.equal(s.hero.groveState, 3);
+    now += 700;
+    s.hero.x = guardian.x;
+    s.hero.z = guardian.z - 1;
+    for (let i = 0; i < 14; i++) s.encounter.strike('hero', 'skill', 0, (now += 700));
+    assert.equal(guardian.hp, 0);
+    assert.equal(s.hero.groveState, 4);
+    s.hero.x = 88;
+    s.hero.z = 2;
+    const goldBefore = s.hero.gold;
+    s.encounter.interact('hero');
+    assert.equal(s.hero.groveState, 5);
+    assert.equal(s.hero.gold, goldBefore + GROVE_STORY.reward.gold);
+    const goldAfter = s.hero.gold;
+    s.encounter.interact('hero');
+    assert.equal(s.hero.groveState, 5);
+    assert.equal(s.hero.gold, goldAfter, 'The grove reward is paid only once');
   } finally {
     s.physics.dispose();
   }

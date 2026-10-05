@@ -8,13 +8,15 @@ import { NetworkManager } from '../network/NetworkManager';
 import { VFXSystem } from '../vfx/VFXSystem';
 import { HUD } from '../ui/HUD';
 import { FollowCamera } from './Camera';
-import { AssetLoader } from './AssetLoader';
+import { AssetLoader, type AssetManifest } from './AssetLoader';
 import { AudioManager } from './AudioManager';
 import { Graphics } from './Graphics';
 import { mobileGraphics } from './Performance';
 import { Enemy } from '../combat/Enemy';
 import { RPGPanels } from '../ui/RPGPanels';
-import { nearbyNpc } from '@aetheria/shared';
+import { NPCS, nearbyNpc } from '@aetheria/shared';
+import { Townsfolk } from '../world/Townsfolk';
+import { Tutorial } from '../ui/Tutorial';
 import type { LoadingScreen } from '../ui/LoadingScreen';
 
 export class Game {
@@ -25,6 +27,7 @@ export class Game {
   private localPhysics?: PhysicsPlayer;
   private assets = new AssetLoader();
   private hud = new HUD();
+  private tutorial = new Tutorial();
   private audio = new AudioManager();
   private vfx = new VFXSystem(
     this.world.scene,
@@ -32,7 +35,10 @@ export class Game {
   );
   private network = new NetworkManager();
   private input: InputController;
-  private panels = new RPGPanels(() => this.network.room?.state?.players?.get(this.network.id));
+  private panels = new RPGPanels(
+    () => this.network.room?.state?.players?.get(this.network.id),
+    () => this.network.room?.state?.players ?? [],
+  );
   private travelRevision = 0;
   private warriors = new Map<string, Warrior>();
   private pending: InputFrame[] = [];
@@ -46,6 +52,7 @@ export class Game {
   private joining = false;
   private graphics: Graphics;
   private enemies = new Map<string, Enemy>();
+  private townsfolk: Townsfolk[] = [];
   private alive = true;
   private initialized = false;
   constructor(private loading: LoadingScreen) {
@@ -95,6 +102,8 @@ export class Game {
     };
     this.network.onChat = (e) => this.panels.chat(e);
     this.network.onNotice = (text) => this.hud.toast(text);
+    this.network.onTrade = (view) => this.panels.tradeUpdate(view);
+    this.network.onTradeRequest = (request) => this.panels.tradeRequest(request);
     this.network.onService = (e) => this.panels.open(e.service);
     this.network.onGuard = (e) => {
       this.warriors.get(e.playerId)?.guard();
@@ -106,7 +115,13 @@ export class Game {
       );
     };
     this.input.onEscape = () => this.hud.closeDialogue();
-    this.hud.onDialogueChoice = (choice) => this.network.send('frontier-answer', choice);
+    this.hud.onDialogueChoice = (choice) =>
+      this.network.send(
+        choice === 'relic' || choice === 'bones' || choice === 'silence'
+          ? 'grove-answer'
+          : 'frontier-answer',
+        choice,
+      );
     this.hud.onCloseDialogue = () => this.input.setMenuOpen(this.panels.isOpen);
     this.network.onCombat = (e) => this.combat(e);
     this.network.onRespawn = () => this.hud.toast('Il manichino è pronto per un nuovo duello.');
@@ -190,22 +205,25 @@ export class Game {
     ).catch((error) => {
       controller.abort();
       throw error;
-    })) as { warrior: string | null };
-    const model = (import.meta.env.VITE_WARRIOR_URL as string | undefined) || manifest.warrior;
-    if (model) {
-      try {
-        this.loading.stage('Caricamento del personaggio…', 65);
-        await this.assets.loadWarrior(model, (event) => {
-          if (event.lengthComputable && event.total > 0)
-            this.loading.stage(
-              'Caricamento del personaggio…',
-              65 + Math.min(1, event.loaded / event.total) * 10,
-            );
-        });
-      } catch (error) {
-        console.warn('GLB non disponibile, uso il Warrior provvisorio.', error);
-        this.hud.toast('GLB non disponibile: uso il Warrior provvisorio.');
-      }
+    })) as AssetManifest;
+    const override = import.meta.env.VITE_WARRIOR_URL as string | undefined;
+    if (override) manifest.characters = { ...manifest.characters, warrior: override };
+    try {
+      this.loading.stage('Caricamento dei modelli 3D…', 62);
+      await this.assets.loadManifest(manifest, (ratio) =>
+        this.loading.stage('Caricamento dei modelli 3D…', 62 + ratio * 18),
+      );
+      this.spawnTownsfolk();
+    } catch (error) {
+      console.warn('Modelli GLB non disponibili: uso le figure provvisorie.', error);
+      this.hud.toast('Modelli 3D non disponibili: uso le figure provvisorie.');
+    }
+    try {
+      await this.world.loadCity(this.graphics.low, (ratio) =>
+        this.loading.stage('Costruzione di Lumengate…', 80 + ratio * 5),
+      );
+    } catch (error) {
+      console.warn('Scenografia della città non disponibile.', error);
     }
     try {
       const name = localStorage.getItem('aetheria3d.name');
@@ -282,6 +300,7 @@ export class Game {
       await this.loading.paint();
       if (!this.connected) throw new Error('Connessione interrotta durante il caricamento.');
       this.hud.entered(p.name);
+      this.tutorial.show();
       this.input.setEnabled(this.alive);
       this.loading.hide();
     } catch (error) {
@@ -299,6 +318,15 @@ export class Game {
       this.loading.fail(message, () => this.loading.hide(), 'Torna all’ingresso');
     } finally {
       this.joining = false;
+    }
+  }
+  private spawnTownsfolk() {
+    for (const npc of NPCS) {
+      if (npc.service === 'frontier') continue;
+      const yaw = Math.atan2(-npc.x, -npc.z);
+      const folk = new Townsfolk(this.assets, npc.id, npc.x, npc.z, yaw);
+      this.townsfolk.push(folk);
+      this.world.scene.add(folk.root);
     }
   }
   private cleanupPlayers() {
@@ -341,7 +369,10 @@ export class Game {
   private combat(e: CombatEvent) {
     if (!e.impactOnly) this.warriors.get(e.playerId)?.attack(e.kind, e.yaw);
     this.vfx.combat(e);
-    for (const hit of e.hits) this.enemies.get(hit.targetId)?.hit();
+    for (const hit of e.hits) {
+      this.enemies.get(hit.targetId)?.hit();
+      if (hit.killed) this.vfx.death(hit.x, hit.z);
+    }
     this.hud.combat(e, this.network.id, this.camera.camera);
     if (e.hit) this.audio.hit(e.kind === 'skill');
   }
@@ -409,7 +440,7 @@ export class Game {
       state.enemies.forEach((e, id) => {
         let mesh = this.enemies.get(id);
         if (!mesh) {
-          mesh = new Enemy(e.type, this.graphics.low);
+          mesh = new Enemy(e.type, this.graphics.low, this.assets);
           mesh.root.position.set(e.x, 0, e.z);
           this.world.scene.add(mesh.root);
           this.enemies.set(id, mesh);
@@ -421,6 +452,8 @@ export class Game {
           e.dispose();
           this.enemies.delete(id);
         }
+      for (const [index, folk] of this.townsfolk.entries())
+        folk.update(dt, now / 1000, index * 1.7);
       this.camera.update(this.position, dt);
     } else this.camera.update(new T.Vector3(0, 0, -2), dt);
     this.world.followRegion(this.position.x, this.position.z);
@@ -434,6 +467,19 @@ export class Game {
       this.position.z,
       this.fps,
     );
+    const hero = this.connected ? state?.players.get(this.network.id) : undefined;
+    if (hero && state)
+      this.tutorial.update({
+        questState: hero.questState,
+        questKills: hero.questKills,
+        frontierState: hero.frontierState,
+        frontierKills: hero.frontierKills,
+        groveState: hero.groveState,
+        groveKills: hero.groveKills,
+        x: hero.x,
+        z: hero.z,
+        dummyHp: state.dummyHp,
+      });
     this.world.updateOcclusion(this.camera.camera, this.position, dt);
     this.graphics.render(dt);
   }

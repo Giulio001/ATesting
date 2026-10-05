@@ -1,5 +1,5 @@
 import { Client, getStateCallbacks, type Room } from 'colyseus.js';
-import type { RPGSnapshot, ChatMessage } from '@aetheria/shared';
+import type { RPGSnapshot, ChatMessage, TradeView, TradeRequestView } from '@aetheria/shared';
 import type { WorldState } from '@aetheria/shared/schema';
 import type {
   InputFrame,
@@ -22,6 +22,8 @@ export class NetworkManager {
   onChat: (e: ChatMessage) => void = () => {};
   onNotice: (text: string) => void = () => {};
   onService: (e: { npc: string; service: string }) => void = () => {};
+  onTrade: (view: TradeView | null) => void = () => {};
+  onTradeRequest: (request: TradeRequestView) => void = () => {};
   onGuard: (e: { playerId: string; x: number; z: number; until: number }) => void = () => {};
   send(type: string, value?: unknown) {
     this.room?.send(type, value);
@@ -69,6 +71,8 @@ export class NetworkManager {
     this.room.onMessage('chat', this.onChat);
     this.room.onMessage('notice', this.onNotice);
     this.room.onMessage('service', this.onService);
+    this.room.onMessage('trade', this.onTrade);
+    this.room.onMessage('trade-request', this.onTradeRequest);
     this.room.onMessage('guard', this.onGuard);
     this.room.send('rpg-request');
     this.room.onMessage('combat', this.onCombat);

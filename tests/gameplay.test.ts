@@ -5,7 +5,7 @@ import {
   sanitizeInput,
   inAttackRange,
   hasLineOfSight,
-  WORLD_BOUND,
+  WORLD_LIMITS,
   DT,
   RUN_SPEED,
 } from '@aetheria/shared';
@@ -60,9 +60,9 @@ test('Rapier blocks houses and map edges, slides along walls, and always runs re
     assert.ok(blocked.x > -7.48 && blocked.x < -7.3, `House collision: ${blocked.x}`);
     move(-Math.SQRT1_2, Math.SQRT1_2, false, 30);
     assert.ok(player.body.translation().z > -4, 'Slides along the house facade');
-    physics.teleport(player, 22, 0.91, 0);
+    physics.teleport(player, WORLD_LIMITS.maxX - 1.5, 0.91, 0);
     move(1, 0, true, 60);
-    assert.ok(player.body.translation().x < WORLD_BOUND - 0.3);
+    assert.ok(player.body.translation().x < WORLD_LIMITS.maxX - 0.3);
     assert.ok(Math.abs(player.body.translation().y - 0.905) < 0.035, 'Remains grounded');
     physics.remove(player);
   } finally {

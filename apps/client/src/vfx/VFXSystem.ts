@@ -1,6 +1,6 @@
 import * as T from 'three';
 import { ATTACKS, MAGE_SPELL, type CombatEvent } from '@aetheria/shared';
-type Kind = 'slash' | 'nova' | 'beam' | 'hit' | 'guard' | 'projectile';
+type Kind = 'slash' | 'nova' | 'beam' | 'hit' | 'guard' | 'projectile' | 'rip';
 interface Effect {
   root: T.Group;
   age: number;
@@ -377,6 +377,47 @@ export class VFXSystem {
   }
   damage(x: number, z: number) {
     this.sparks(x, z, 0xeb776d);
+    // A ground ring makes incoming damage legible even when the camera is far away.
+    const root = new T.Group();
+    root.position.set(x, 0.05, z);
+    const ring = this.mesh(root, new T.RingGeometry(0.34, 0.52, this.segments(36)), 0xeb776d, 0.75);
+    ring.rotation.x = -Math.PI / 2;
+    this.add(root, 'hit', 0.5);
+  }
+  /** Dissolve burst played where a creature dies. */
+  death(x: number, z: number, color = 0xb58aff) {
+    const root = new T.Group();
+    root.position.set(x, 0.12, z);
+    for (const [radius, thickness] of [
+      [0.55, 0.05],
+      [0.88, 0.028],
+    ]) {
+      const ring = this.mesh(
+        root,
+        new T.TorusGeometry(radius, thickness, this.segments(8), this.segments(48)),
+        color,
+        0.9,
+      );
+      ring.rotation.x = -Math.PI / 2;
+    }
+    const core = this.mesh(
+      root,
+      new T.SphereGeometry(0.45, this.segments(16), this.segments(10)),
+      color,
+      0.35,
+    );
+    core.userData.flash = true;
+    for (let i = 0; i < (this.low ? 6 : 12); i++) {
+      const shard = this.mesh(root, new T.OctahedronGeometry(0.05 + (i % 3) * 0.02), color, 0.9);
+      const angle = i * 2.399;
+      shard.userData.velocity = new T.Vector3(
+        Math.cos(angle) * (0.8 + (i % 3) * 0.5),
+        0.9 + (i % 4) * 0.5,
+        Math.sin(angle) * (0.8 + (i % 3) * 0.5),
+      );
+    }
+    this.light(root, color, 9, 6);
+    this.add(root, 'rip', 0.85);
   }
   clear() {
     while (this.effects.length) this.remove(this.effects.length - 1);
@@ -400,6 +441,7 @@ export class VFXSystem {
         e.root.scale.z = e.root.position.distanceTo(e.beamEnd) / MAGE_SPELL.beamLength;
       }
       if (e.kind === 'nova') e.root.scale.setScalar(0.3 + Math.sin((t * Math.PI) / 2) * 3.5);
+      if (e.kind === 'rip') e.root.scale.setScalar(0.55 + t * 1.7);
       if (e.kind === 'slash' && !e.trail) e.root.rotation.y += dt * 3.5;
       if (e.kind === 'guard') e.root.rotation.y += dt * 0.35;
       for (const c of e.root.children) {
@@ -408,7 +450,7 @@ export class VFXSystem {
             (c.userData.opacity ?? 1) *
             (e.kind === 'projectile' ? 1 : e.kind === 'guard' ? Math.min(1, fade * 5) : fade);
           if (c.userData.spin) c.rotation.z += dt * c.userData.spin * 3;
-          if (e.kind === 'hit' && c.userData.velocity) {
+          if ((e.kind === 'hit' || e.kind === 'rip') && c.userData.velocity) {
             c.position.addScaledVector(c.userData.velocity, dt);
             c.userData.velocity.y -= dt * 4;
           }

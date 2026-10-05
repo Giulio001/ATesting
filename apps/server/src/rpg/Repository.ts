@@ -21,6 +21,8 @@ export interface Profile {
   questKills: number;
   frontierState: number;
   frontierKills: number;
+  groveState: number;
+  groveKills: number;
   kills: number;
   potions: number;
   manaPotions: number;
@@ -52,6 +54,8 @@ export class Repository {
         profile.aetherDust ??= 0;
         profile.frontierState ??= 0;
         profile.frontierKills ??= 0;
+        profile.groveState ??= 0;
+        profile.groveKills ??= 0;
         profile.heroClass = heroClass(profile.heroClass);
       }
       Object.assign(this.clans, d.clans);
@@ -76,6 +80,8 @@ export class Repository {
         questKills: 0,
         frontierState: 0,
         frontierKills: 0,
+        groveState: 0,
+        groveKills: 0,
         kills: 0,
         potions: 3,
         manaPotions: 2,

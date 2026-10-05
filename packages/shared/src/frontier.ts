@@ -1,6 +1,6 @@
 import { experienceToNextLevel } from './aetheria/progression.js';
 // Original frontier story and enemy identities, adapted to a connected 3D region.
-export const WORLD_LIMITS = { minX: -24, maxX: 78, minZ: -24, maxZ: 24 } as const;
+export const WORLD_LIMITS = { minX: -24, maxX: 140, minZ: -24, maxZ: 24 } as const;
 export const FRONTIER = {
   entrance: { x: 34, z: 0 },
   beacon: { x: 61, z: -5 },
@@ -11,13 +11,15 @@ export function isHostile(x: number, z: number) {
   return x >= 42 || (x < 24 && z >= 10);
 }
 export function regionName(x: number, z: number) {
-  return x >= 30
-    ? 'Terre Sanguinanti'
-    : x >= 24
-      ? 'Passo della Frontiera'
-      : z >= 10
-        ? 'Porta del Vuoto'
-        : 'Lumengate';
+  return x >= 86
+    ? 'Bosco Sommerso'
+    : x >= 30
+      ? 'Terre Sanguinanti'
+      : x >= 24
+        ? 'Passo della Frontiera'
+        : z >= 10
+          ? 'Porta del Vuoto'
+          : 'Lumengate';
 }
 export const FRONTIER_STORY = {
   offer:
@@ -150,7 +152,34 @@ export const ENEMY_RULES: Record<
     elite: true,
     respawn: 90000,
   },
+  drowned: {
+    name: 'Creatura Annegata',
+    hp: 210,
+    radius: 2,
+    reach: 1.7,
+    windup: 900,
+    damage: 20,
+    speed: 1.7,
+    xp: 85,
+    gold: 14,
+    elite: false,
+    respawn: 22000,
+  },
+  guardian: {
+    name: 'Guardiano Annegato',
+    hp: 2200,
+    radius: 3.3,
+    reach: 3,
+    windup: 1500,
+    damage: 32,
+    speed: 1.5,
+    xp: 360,
+    gold: 90,
+    elite: true,
+    respawn: 120000,
+  },
 };
+
 export function enemyRules(type: string) {
   return ENEMY_RULES[type] ?? ENEMY_RULES.shard;
 }

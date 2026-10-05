@@ -21,6 +21,8 @@ export class PlayerState extends Schema {
   questKills = 0;
   frontierState = 0;
   frontierKills = 0;
+  groveState = 0;
+  groveKills = 0;
   kills = 0;
   deadUntil = 0;
   skillUntil = 0;
@@ -59,6 +61,8 @@ defineTypes(PlayerState, {
   questKills: 'uint8',
   frontierState: 'uint8',
   frontierKills: 'uint8',
+  groveState: 'uint8',
+  groveKills: 'uint8',
   kills: 'uint32',
   deadUntil: 'float64',
   skillUntil: 'float64',

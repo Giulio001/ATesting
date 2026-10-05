@@ -1,7 +1,9 @@
 import { experienceToNextLevel } from './aetheria/progression.js';
 import { MAGE_SPELL } from './rpg.js';
 import { FRONTIER_SPAWNS } from './frontier.js';
+import { GROVE_SPAWNS } from './grove.js';
 export * from './frontier.js';
+export * from './grove.js';
 export { MAX_LEVEL, experienceToNextLevel } from './aetheria/progression.js';
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;
@@ -21,6 +23,7 @@ export const ENEMY_SPAWNS = [
   { id: 'shard-south', type: 'shard', x: 0, z: 18, hp: 96 },
   { id: 'sentinel', type: 'sentinel', x: 0, z: 21, hp: 260 },
   ...FRONTIER_SPAWNS,
+  ...GROVE_SPAWNS,
 ] as const;
 export const ATTACKS = {
   slash: { cooldown: 650, range: 2.8, damage: 58, duration: 0.48 },
