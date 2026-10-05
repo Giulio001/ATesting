@@ -24,6 +24,9 @@ export interface Profile {
   groveState: number;
   groveKills: number;
   kills: number;
+  dailyDay: number;
+  dailyProgress: number;
+  dailyDone: number;
   potions: number;
   manaPotions: number;
   items: Item[];
@@ -56,6 +59,9 @@ export class Repository {
         profile.frontierKills ??= 0;
         profile.groveState ??= 0;
         profile.groveKills ??= 0;
+        profile.dailyDay ??= 0;
+        profile.dailyProgress ??= 0;
+        profile.dailyDone ??= 0;
         profile.heroClass = heroClass(profile.heroClass);
       }
       Object.assign(this.clans, d.clans);
@@ -83,6 +89,9 @@ export class Repository {
         groveState: 0,
         groveKills: 0,
         kills: 0,
+        dailyDay: 0,
+        dailyProgress: 0,
+        dailyDone: 0,
         potions: 3,
         manaPotions: 2,
         items: starterKit(selectedClass),

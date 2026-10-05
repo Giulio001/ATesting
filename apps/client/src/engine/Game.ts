@@ -14,8 +14,8 @@ import { Graphics } from './Graphics';
 import { mobileGraphics } from './Performance';
 import { Enemy } from '../combat/Enemy';
 import { RPGPanels } from '../ui/RPGPanels';
-import { NPCS, nearbyNpc } from '@aetheria/shared';
-import { Townsfolk } from '../world/Townsfolk';
+import { ALL_NPCS, nearbyNpc, nearbyResident } from '@aetheria/shared';
+import { SCENERY_NPCS, Townsfolk } from '../world/Townsfolk';
 import { Tutorial } from '../ui/Tutorial';
 import type { LoadingScreen } from '../ui/LoadingScreen';
 
@@ -32,14 +32,17 @@ export class Game {
   private vfx = new VFXSystem(
     this.world.scene,
     (id, base, tip) => this.warriors.get(id)?.weaponPose(base, tip) ?? false,
+    ({ strength, duration }) => this.camera.shake(strength, duration),
   );
   private network = new NetworkManager();
   private input: InputController;
   private panels = new RPGPanels(
     () => this.network.room?.state?.players?.get(this.network.id),
     () => this.network.room?.state?.players ?? [],
+    () => this.network.room?.state,
   );
   private travelRevision = 0;
+  private hitStop = 0;
   private warriors = new Map<string, Warrior>();
   private pending: InputFrame[] = [];
   private seq = 0;
@@ -80,8 +83,9 @@ export class Game {
         return;
       }
       const p = this.network.room?.state?.players?.get(this.network.id);
-      if (p && nearbyNpc(p.x, p.z)) this.network.interact();
-      else this.hud.toast('Avvicinati a un NPC: custode, Quartiermastro o Araldo dei Clan.');
+      if (p && (nearbyNpc(p.x, p.z) || nearbyResident(p.x, p.z, 3, Date.now())))
+        this.network.interact();
+      else this.hud.toast('Avvicinati a un abitante: custode, Banditore, Quartiermastro o Araldo.');
     };
     this.input.onPotion = () => this.network.potion();
     this.input.onManaPotion = () => this.network.send('mana-potion');
@@ -115,13 +119,14 @@ export class Game {
       );
     };
     this.input.onEscape = () => this.hud.closeDialogue();
-    this.hud.onDialogueChoice = (choice) =>
-      this.network.send(
-        choice === 'relic' || choice === 'bones' || choice === 'silence'
+    this.hud.onDialogueChoice = (choice) => {
+      const type = choice.startsWith('daily:')
+        ? 'daily-answer'
+        : choice === 'relic' || choice === 'bones' || choice === 'silence'
           ? 'grove-answer'
-          : 'frontier-answer',
-        choice,
-      );
+          : 'frontier-answer';
+      this.network.send(type, choice);
+    };
     this.hud.onCloseDialogue = () => this.input.setMenuOpen(this.panels.isOpen);
     this.network.onCombat = (e) => this.combat(e);
     this.network.onRespawn = () => this.hud.toast('Il manichino è pronto per un nuovo duello.');
@@ -321,10 +326,11 @@ export class Game {
     }
   }
   private spawnTownsfolk() {
-    for (const npc of NPCS) {
-      if (npc.service === 'frontier') continue;
-      const yaw = Math.atan2(-npc.x, -npc.z);
-      const folk = new Townsfolk(this.assets, npc.id, npc.x, npc.z, yaw);
+    for (const npc of ALL_NPCS) {
+      // Frontier service NPCs are objects handled by the world; the beacon and
+      // the sunken altar are scenery, not rigged people.
+      if (npc.service === 'frontier' || SCENERY_NPCS.has(npc.id)) continue;
+      const folk = new Townsfolk(this.assets, npc, this.graphics.low);
       this.townsfolk.push(folk);
       this.world.scene.add(folk.root);
     }
@@ -373,6 +379,11 @@ export class Game {
       this.enemies.get(hit.targetId)?.hit();
       if (hit.killed) this.vfx.death(hit.x, hit.z);
     }
+    // Heavy blows freeze the presentation for a couple of frames: the classic
+    // hit-stop that makes a skill read as impactful without slowing the server.
+    const heavy = e.kind === 'skill' || (e.hit && e.damage >= 100);
+    if (heavy) this.hitStop = Math.max(this.hitStop, e.kind === 'skill' ? 0.11 : 0.06);
+    if (e.kind === 'skill') this.camera.punch(e.heroClass === 'VOID_KNIGHT' ? 3 : 2.4);
     this.hud.combat(e, this.network.id, this.camera.camera);
     if (e.hit) this.audio.hit(e.kind === 'skill');
   }
@@ -383,6 +394,11 @@ export class Game {
       dt = Math.min(0.1, elapsed);
     this.previous = now;
     if (elapsed > 0) this.fps = T.MathUtils.lerp(this.fps, 1 / elapsed, 0.1);
+    // Presentation time runs in slow motion during a hit-stop; simulation,
+    // prediction and networking always keep the real elapsed time.
+    const present = this.hitStop > 0 ? 0.22 : 1;
+    this.hitStop = Math.max(0, this.hitStop - dt);
+    const sdt = dt * present;
     const state = this.network.room?.state;
     if (this.connected && this.localPhysics && !document.hidden) {
       this.accumulator += Math.min(0.25, elapsed);
@@ -425,7 +441,7 @@ export class Game {
         w.equipment(p.weaponIcon, p.shieldIcon, p.heroClass);
         this.vfx.moveGuard(id, p.x, p.z);
         w.update(
-          dt,
+          sdt,
           local && input ? Math.hypot(input.x, input.z) > 0.01 : p.moving,
           local && input ? input.run : p.running,
           local && input ? input.yaw : p.yaw,
@@ -445,20 +461,20 @@ export class Game {
           this.world.scene.add(mesh.root);
           this.enemies.set(id, mesh);
         }
-        mesh.update(e, dt, now / 1000, Date.now());
+        mesh.update(e, sdt, now / 1000, Date.now());
       });
       for (const [id, e] of this.enemies)
         if (!state.enemies.has(id)) {
           e.dispose();
           this.enemies.delete(id);
         }
-      for (const [index, folk] of this.townsfolk.entries())
-        folk.update(dt, now / 1000, index * 1.7);
-      this.camera.update(this.position, dt);
-    } else this.camera.update(new T.Vector3(0, 0, -2), dt);
+      for (const folk of this.townsfolk)
+        folk.update(sdt, now / 1000, this.position.x, this.position.z);
+      this.camera.update(this.position, dt, false);
+    } else this.camera.update(new T.Vector3(0, 0, -2), sdt);
     this.world.followRegion(this.position.x, this.position.z);
     this.world.update(now / 1000, state?.dummyHp ?? 240);
-    this.vfx.update(dt);
+    this.vfx.update(sdt);
     this.hud.update(
       this.connected ? state : undefined,
       this.network.id,

@@ -24,6 +24,12 @@ export class PlayerState extends Schema {
   groveState = 0;
   groveKills = 0;
   kills = 0;
+  /** UTC day index of the current daily rotation. */
+  dailyDay = 0;
+  /** One byte of progress per daily slot. */
+  dailyProgress = 0;
+  /** Bitmask of claimed daily slots. */
+  dailyDone = 0;
   deadUntil = 0;
   skillUntil = 0;
   potionUntil = 0;
@@ -64,6 +70,9 @@ defineTypes(PlayerState, {
   groveState: 'uint8',
   groveKills: 'uint8',
   kills: 'uint32',
+  dailyDay: 'uint32',
+  dailyProgress: 'uint32',
+  dailyDone: 'uint8',
   deadUntil: 'float64',
   skillUntil: 'float64',
   potionUntil: 'float64',

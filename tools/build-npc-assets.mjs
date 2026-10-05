@@ -68,6 +68,13 @@ for (const [key, url] of Object.entries(CAST)) {
   );
   await mkdir(join(outRoot, key), { recursive: true });
   await io.write(join(outRoot, key, `${key}.glb`), doc);
-  console.log(key, doc.getRoot().listAnimations().map((a) => a.getName()).join('/'));
+  console.log(
+    key,
+    doc
+      .getRoot()
+      .listAnimations()
+      .map((a) => a.getName())
+      .join('/'),
+  );
 }
 console.log('done:', basename(outRoot));

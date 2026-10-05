@@ -2,6 +2,27 @@
 
 Verificato il 5 ottobre 2026.
 
+## Abitanti, taglie giornaliere, mappe ed effetti (ultimo aggiornamento)
+
+- TypeScript: nessun errore.
+- Test unitari: **28 superati**, compresi i 7 nuovi sulla rotazione giornaliera (reset alle 05:00 UTC, determinismo per giorno, pacchettizzazione del progresso per slot, maschera di riscossione, filtri delle taglie) e sulla pattuglia deterministica degli abitanti.
+- Build: client Vite e server esbuild compilati.
+- Integrazione sul server compilato: due client Colyseus reali, combattimento autoritativo, missione di Lumengate, scambio fra giocatori, fondazione clan e recupero del personaggio.
+- `npm run test:town` e `npm run test:city`: **ALL OK** (Lumengate procedurale smussata e 38/38 modelli del kit storico).
+- Prettier: nessun file fuori stile.
+
+**Abitanti.** Lumengate ospita ora 9 PNG di servizio e 18 abitanti ambientali. Gli abitanti hanno ciascuno un GLB riggato proprio (Quaternius _Ultimate Modular Men/Women_, CC0 1.0, in `apps/client/public/assets/npc/`), una tinta di vestiario e una texture di tessuto procedurale generata a runtime (trama, nodi e macchie) che moltiplica i materiali originali. Camminano su percorsi deterministici condivisi con il server (`residentPose`): la posizione è una funzione pura del tempo, quindi client e server concordano sempre su dove si trova l'abitante. Si fermano, salutano con l'animazione `Wave`, e mostrano fumetti in-world con battute ambientali quando l'eroe è vicino; parlando con loro si apre un dialogo di colore. Il Banditore delle Taglie è il PNG che consegna le missioni giornaliere.
+
+**Missioni giornaliere.** Tre taglie pescate ogni giorno da un pool di sei, con rotazione deterministica per giorno UTC (reset alle 05:00). Il progresso avanza combattendo in ogni regione, è impacchettato in un `uint32` (un byte per slot) sulla schema Colyseus e persistito nel profilo; la riscossione passa dal Banditore e paga oro, EXP, Polvere d'Aether e pozioni. La sezione Missioni del pannello J mostra stato, barra di progresso e conto alla rovescia al reset.
+
+**Mappe.** La minimappa ora disegna anche gli abitanti in movimento; il pannello Mappa (M) è una mappa a scorrimento est-ovest del mondo intero con le tre regioni, la strada antica, gli edifici dai collider condivisi, i PNG di servizio, gli abitanti, i nemici (rossi, magenta per le élite) e il marcatore del giocatore orientato.
+
+**Effetti scenografici.** Il sistema VFX usa ora campi di particelle su GPU (`Points` con shader dedicato), texture procedurali (glow, scintilla, scia, alone, mezzaluna, rune, esagono, bruciatura, polvere) e decal a terra bruciati. Fendenti con scia UV sulla lama e arco di mezzaluna, nova con onda d'urto, pilastro, schegge e cratere, raggio a strati con rune e bruciatura sul punto d'impatto, frecce e sfere con scie, barriera esagonale con rune orbitanti e morte con animum che salgono. Camera shake (trauma con decadimento) e hit-stop di presentazione accompagnano i colpi pesanti; nessuno dei due tocca simulazione, prediction o rete. In Leggera restano 48 gruppi, niente luci puntiformi, meno particelle e texture 128 px.
+
+Restano da eseguire le prove visive in browser (desktop e touch): l'utente le eseguirà dopo il push. Gli screenshot in `docs/` appartengono alle versioni precedenti.
+
+## Verifica storica (prima dell'ultimo aggiornamento)
+
 - TypeScript: nessun errore.
 - Test unitari: **8 superati**, inclusi collisioni, input, corsa anche con flag legacy disattivato, portata/direzione dei colpi, missione a ricompensa unica, contributi cooperativi, attacchi evitabili, pozioni, morte/respawn e salvataggio riletto dopo un riavvio.
 - Build: client Vite e server esbuild compilati. Resta l'avviso di dimensione del bundle Rapier WASM.

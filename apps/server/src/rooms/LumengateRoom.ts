@@ -17,7 +17,7 @@ import {
 } from '@aetheria/shared';
 import { RPGSystem } from '../rpg/RPGSystem.ts';
 import { TradeSystem } from '../rpg/TradeSystem.ts';
-import { ABILITIES, nearbyNpc, type AbilityId } from '@aetheria/shared';
+import { ABILITIES, nearbyNpc, nearbyResident, type AbilityId } from '@aetheria/shared';
 import { EncounterSystem } from '../world/EncounterSystem.ts';
 import { ProjectileSystem } from '../world/ProjectileSystem.ts';
 import { classAbilities, MAGE_SPELL } from '@aetheria/shared';
@@ -72,6 +72,11 @@ export class LumengateRoom extends Room<WorldState> {
       groveReward: (id) => this.rpg.groveReward(id),
       loot: (id, elite) => this.rpg.loot(id, elite),
       dialogue: (id, e) => this.clients.find((c) => c.sessionId === id)?.send('dialogue', e),
+      notice: (id, text) => this.clients.find((c) => c.sessionId === id)?.send('notice', text),
+      daily: (id, quest) => {
+        this.rpg.addDust(id, quest.dust);
+        this.rpg.checkpoint(id);
+      },
     });
     this.trades = new TradeSystem(this.state, this.rpg, (id, type, value) =>
       this.clients.find((c) => c.sessionId === id)?.send(type, value),
@@ -144,7 +149,14 @@ export class LumengateRoom extends Room<WorldState> {
       s.lastInteract = now;
       const p = this.state.players.get(client.sessionId)!;
       const npc = nearbyNpc(p.x, p.z);
-      if (npc?.service === 'quest' || npc?.service === 'frontier' || npc?.service === 'grove') {
+      const resident = npc ? undefined : nearbyResident(p.x, p.z);
+      if (
+        npc?.service === 'quest' ||
+        npc?.service === 'frontier' ||
+        npc?.service === 'grove' ||
+        npc?.service === 'daily' ||
+        resident
+      ) {
         this.encounters.interact(client.sessionId);
         this.rpg.checkpoint(client.sessionId);
         this.rpg.send(client.sessionId);
@@ -155,6 +167,11 @@ export class LumengateRoom extends Room<WorldState> {
     });
     this.onMessage('frontier-answer', (client, value) => {
       this.encounters.answerFrontier(client.sessionId, value);
+      this.rpg.checkpoint(client.sessionId);
+      this.rpg.send(client.sessionId);
+    });
+    this.onMessage('daily-answer', (client, value) => {
+      this.encounters.answerDaily(client.sessionId, value);
       this.rpg.checkpoint(client.sessionId);
       this.rpg.send(client.sessionId);
     });

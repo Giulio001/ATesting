@@ -2,7 +2,7 @@
 
 Ricostruzione parallela di **Aetheria — Shards of the Void** con TypeScript, Three.js, Rapier e Colyseus. L'obiettivo è mantenere il gioco di `Giulio001/RoundWorld`, portandone mondo e personaggi in 3D. Nessun editor o engine esterno è richiesto.
 
-**ATesting è separato da Aetheria 2D online.** Server, salvataggi, porte e configurazione di deploy sono indipendenti. Questa versione porta il primo nucleo RPG, la Frontiera e il Bosco Sommerso collegati a Lumengate; non contiene ancora tutto il mondo e tutti i sistemi del gioco originale.
+**ATesting è separato da Aetheria 2D online.** Server, salvataggi, porte e configurazione di deploy sono indipendenti. Questa versione porta il primo nucleo RPG, la Frontiera e il Bosco Sommerso collegati a Lumengate; non contiene ancora tutto il mondo e tutti i sistemi del gioco originale. La piazza è popolata da PNG di servizio e da abitanti mobili con modelli GLB e texture propri, dialoghi e fumetti; il Banditore delle Taglie consegna tre missioni giornaliere che ruotano ogni giorno, e il pannello Mappa mostra l'intero mondo con le tre regioni.
 
 ![Lumengate e HUD](docs/lumengate-desktop.jpg)
 

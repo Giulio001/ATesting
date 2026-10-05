@@ -4,6 +4,7 @@ import { FRONTIER_SPAWNS } from './frontier.js';
 import { GROVE_SPAWNS } from './grove.js';
 export * from './frontier.js';
 export * from './grove.js';
+export * from './daily.js';
 export { MAX_LEVEL, experienceToNextLevel } from './aetheria/progression.js';
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;

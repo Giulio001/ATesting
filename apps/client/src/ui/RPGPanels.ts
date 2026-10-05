@@ -14,6 +14,18 @@ import {
   forgeUpgradeMaterials,
   countMaterial,
   nearbyNpc,
+  ALL_NPCS,
+  RESIDENTS,
+  residentPose,
+  dayIndex,
+  dailyRotation,
+  nextDailyReset,
+  slotProgress,
+  slotDone,
+  enemyRules,
+  OBSTACLES,
+  FRONTIER,
+  GROVE,
   CLASS_NAMES,
   isHostile,
   FRONTIER_TITLES,
@@ -33,7 +45,7 @@ import {
   type ChatMessage,
   type AbilityId,
 } from '@aetheria/shared';
-import type { PlayerState } from '@aetheria/shared/schema';
+import type { PlayerState, WorldState } from '@aetheria/shared/schema';
 const esc = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -77,6 +89,7 @@ export class RPGPanels {
   constructor(
     private player: () => PlayerState | undefined,
     private nearbyPlayers: () => Iterable<[string, PlayerState]> = () => [],
+    private world: () => WorldState | undefined = () => undefined,
   ) {
     document
       .querySelectorAll<HTMLElement>('[data-open]')
@@ -286,6 +299,21 @@ export class RPGPanels {
     ];
     this.content.innerHTML = `<article class="quest-entry"><small>LUMENGATE · ${state === 3 ? 'COMPLETATA' : state === 0 ? 'DA ACCETTARE' : 'IN CORSO'}</small><h3>Il primo giuramento</h3><p>${lines[state]}</p><div class="quest-meter"><i style="width:${((p?.questKills ?? 0) / 3) * 100}%"></i></div><p>Schegge sconfitte: ${p?.questKills ?? 0} / 3</p><strong>Ricompensa: 75 oro + 100 EXP</strong><p>Interagisci con il custode premendo E o il pulsante PARLA.</p></article>`;
     this.content.innerHTML += `<article class="quest-entry"><small>TERRE SANGUINANTI · ${p?.frontierState === 5 ? 'COMPLETATA' : p?.frontierState ? 'IN CORSO' : 'DA ACCETTARE'}</small><h3>${FRONTIER_TITLES[p?.frontierState ?? 0]}</h3><p>${frontierObjective(p?.frontierState ?? 0, p?.frontierKills ?? 0)}</p><p>Creature corrotte: ${p?.frontierKills ?? 0} / 5</p><strong>Ricompensa: ${FRONTIER_STORY.reward.gold} oro · ${FRONTIER_STORY.reward.xp} EXP · 10 polvere · 2 pozioni · 2 Gelatine Eteree</strong><p>Il ponte a est collega Lumengate alla Frontiera. Il faro conserva l’indizio; il Campione difende la radura orientale.</p></article>`;
+    const now = Date.now();
+    const day = p?.dailyDay || dayIndex(now);
+    const quests = dailyRotation(day);
+    const remaining = Math.max(0, nextDailyReset(now) - now);
+    const resetLabel = `${Math.floor(remaining / 3_600_000)}h ${Math.floor((remaining % 3_600_000) / 60_000)}m`;
+    const dailyEntries = quests
+      .map((quest, slot) => {
+        const progress = Math.min(quest.goal, slotProgress(p?.dailyProgress ?? 0, slot));
+        const done = slotDone(p?.dailyDone ?? 0, slot);
+        const status = done ? 'RISCOSSA' : progress >= quest.goal ? 'PRONTA' : 'IN CORSO';
+        const reward = `${quest.gold} oro · ${quest.xp} EXP · ${quest.dust} Polvere${quest.potions ? ` · ${quest.potions} pozioni` : ''}`;
+        return `<article class="quest-entry daily"><small>TAGLIA GIORNALIERA · ${status}</small><h3>${esc(quest.title)}</h3><p>${esc(quest.description)}</p><div class="quest-meter"><i style="width:${(progress / quest.goal) * 100}%"></i></div><p>Progresso: ${progress} / ${quest.goal}</p><strong>Ricompensa: ${reward}</strong></article>`;
+      })
+      .join('');
+    this.content.innerHTML += `<section class="daily-block"><h3>MISSIONI GIORNALIERE <small>nuove taglie fra ${resetLabel}</small></h3>${dailyEntries}<p class="daily-hint">Riscuoti le taglie dal <b>Banditore</b>, accanto alla fontana (E). Il conteggio avanza combattendo in qualsiasi regione.</p></section>`;
     if ((p?.frontierState ?? 0) >= 5 || (p?.groveState ?? 0) > 0)
       this.content.innerHTML += `<article class="quest-entry"><small>BOSCO SOMMERSO · ${p?.groveState === 5 ? 'COMPLETATA' : 'IN CORSO'}</small><h3>${GROVE_TITLES[p?.groveState ?? 0]}</h3><p>${groveObjective(p?.groveState ?? 0, p?.groveKills ?? 0)}</p><p>Creature annegate: ${p?.groveKills ?? 0} / 6</p><strong>Ricompensa: ${GROVE_STORY.reward.gold} oro · ${GROVE_STORY.reward.xp} EXP · 14 polvere · 3 pozioni · 3 Gelatine Eteree</strong><p>Oltre la Frontiera il fiume ha sommerso un antico bosco. Il Custode del Bosco veglia sull’altare; il Guardiano Annegato custodisce la reliquia.</p></article>`;
   }
@@ -402,10 +430,142 @@ export class RPGPanels {
   }
   private map() {
     this.content.innerHTML =
-      '<canvas id="large-map" width="540" height="540" aria-label="Mappa di Lumengate"></canvas><p class="map-legend">◆ Guardian · ● Giallo: NPC · ● Rosso: nemici · ◇ Viola: fenditura / faro</p>';
-    const c = (document.getElementById('large-map') as HTMLCanvasElement).getContext('2d')!;
-    c.imageSmoothingEnabled = false;
-    c.drawImage(document.getElementById('minimap') as HTMLCanvasElement, 0, 0, 540, 540);
+      '<canvas id="large-map" width="540" height="540" aria-label="Mappa di Aetheria"></canvas><p class="map-legend">◆ tu · ● oro: servizi · ○ chiaro: abitanti · ● rosso: nemici · ● magenta: élite · ↓ la mappa scorre verso est</p>';
+    const p = this.player();
+    const canvas = document.getElementById('large-map') as HTMLCanvasElement;
+    const c = canvas.getContext('2d')!;
+    const W = canvas.width,
+      H = canvas.height,
+      PAD = 30;
+    const minX = -24,
+      maxX = 144,
+      minZ = -26,
+      maxZ = 26;
+    const scale = Math.min((W - PAD * 2) / (maxZ - minZ), (H - PAD * 2) / (maxX - minX));
+    const stripW = (maxZ - minZ) * scale,
+      stripH = (maxX - minX) * scale;
+    const ox = (W - stripW) / 2,
+      oy = (H - stripH) / 2;
+    const pz = (z: number) => ox + (z - minZ) * scale;
+    const px = (x: number) => oy + (x - minX) * scale;
+    c.clearRect(0, 0, W, H);
+    c.fillStyle = '#0c1513';
+    c.fillRect(0, 0, W, H);
+    const regions: [number, number, string, string][] = [
+      [minX, 30, '#22343a', 'LUMENGATE'],
+      [30, 86, '#3b2f45', 'TERRE SANGUINANTI'],
+      [86, maxX, '#20362f', 'BOSCO SOMMERSO'],
+    ];
+    for (const [from, to, fill, label] of regions) {
+      c.fillStyle = fill;
+      c.fillRect(ox, px(from), stripW, (to - from) * scale);
+      c.save();
+      c.translate(ox + stripW / 2, px((from + to) / 2));
+      c.rotate(-Math.PI / 2);
+      c.fillStyle = 'rgba(240,230,200,0.45)';
+      c.font = '600 16px "VT323", monospace';
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      c.fillText(label, 0, 0);
+      c.restore();
+    }
+    // The old kings' road ties the three regions together.
+    const road: [number, number][] = [
+      [-3, 6],
+      [0, 10],
+      [8, 9],
+      [16, 4],
+      [26, 0],
+      [36, 0],
+      [46, -2],
+      [55, 2],
+      [61, -4],
+      [66, 4],
+      [74, 8],
+      [86, 2],
+      [96, 0],
+      [108, -10],
+      [118, -4],
+      [132, 6],
+    ];
+    c.beginPath();
+    road.forEach(([x, z], index) => (index ? c.lineTo(pz(z), px(x)) : c.moveTo(pz(z), px(x))));
+    c.strokeStyle = 'rgba(181,161,125,0.55)';
+    c.lineWidth = 3;
+    c.setLineDash([8, 7]);
+    c.stroke();
+    c.setLineDash([]);
+    // Buildings, trees and walls from the shared collider list.
+    for (const o of OBSTACLES) {
+      const color =
+        o.kind === 'tree'
+          ? '#2f5240'
+          : o.kind === 'house'
+            ? '#3a4a52'
+            : o.kind === 'wall'
+              ? '#44505a'
+              : o.kind === 'rock'
+                ? '#43565c'
+                : '#334c52';
+      c.fillStyle = color;
+      c.fillRect(
+        pz(o.z - o.hz),
+        px(o.x - o.hx),
+        Math.max(2, o.hz * 2 * scale),
+        Math.max(2, o.hx * 2 * scale),
+      );
+    }
+    const dot = (x: number, z: number, color: string, radius: number) => {
+      c.fillStyle = color;
+      c.beginPath();
+      c.arc(pz(z), px(x), radius, 0, Math.PI * 2);
+      c.fill();
+    };
+    const seconds = Date.now() / 1000;
+    for (const npc of RESIDENTS) {
+      const pose = residentPose(npc, seconds);
+      dot(pose.x, pose.z, 'rgba(238,232,210,0.75)', 3);
+    }
+    for (const npc of ALL_NPCS) if (npc.service !== 'resident') dot(npc.x, npc.z, '#f4d48f', 5);
+    dot(FRONTIER.beacon.x, FRONTIER.beacon.z, '#b797fa', 5);
+    dot(GROVE.altar.x, GROVE.altar.z, '#7de8c2', 5);
+    this.world()?.enemies?.forEach((e) => {
+      if (e.hp <= 0) return;
+      const rules = enemyRules(e.type);
+      dot(e.x, e.z, rules.elite ? '#eb91e2' : '#ec8d83', rules.elite ? 5 : 3);
+    });
+    if (p && p.hp > 0) {
+      const cx = pz(p.z),
+        cy = px(p.x);
+      c.save();
+      c.translate(cx, cy);
+      c.rotate(-p.yaw + Math.PI);
+      c.fillStyle = '#7fe8ff';
+      c.beginPath();
+      c.moveTo(0, -11);
+      c.lineTo(7, 8);
+      c.lineTo(0, 4);
+      c.lineTo(-7, 8);
+      c.closePath();
+      c.fill();
+      c.restore();
+      c.strokeStyle = 'rgba(127,232,255,0.5)';
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.arc(cx, cy, 13, 0, Math.PI * 2);
+      c.stroke();
+    }
+    c.strokeStyle = 'rgba(200,170,110,0.5)';
+    c.lineWidth = 2;
+    c.strokeRect(ox, oy, stripW, stripH);
+    c.fillStyle = 'rgba(240,230,200,0.7)';
+    c.font = '16px "VT323", monospace';
+    c.textAlign = 'center';
+    c.fillText(
+      `Lumengate  →  Frontiera  →  Bosco Sommerso     ·     posizione: ${Math.round(p?.x ?? 0)} / ${Math.round(p?.z ?? 0)}`,
+      W / 2,
+      H - 8,
+    );
   }
   private settings() {
     this.content.innerHTML = `<p>Il livello grafico si cambia dal selettore GRAFICA. Su telefono la modalità automatica sceglie la qualità leggera.</p><p>WASD / joystick: corsa sempre attiva.<br>Spazio / click: attacco. Q / R / F: abilità.<br>H: pozione salute. G: pozione mana. E: interazione.<br>I: zaino. K: abilità. J: missioni. C: clan. M: mappa. Scambio fra giocatori: Menu → Scambio.<br>Invio: chat. Esc: chiudi.</p><p>Progressi, equipaggiamento e clan sono salvati sul server di ATesting. Il personaggio di questo browser viene riconosciuto tramite una chiave privata salvata localmente.</p>`;

@@ -72,6 +72,9 @@ export class RPGSystem {
       'kills',
       'potions',
       'manaPotions',
+      'dailyDay',
+      'dailyProgress',
+      'dailyDone',
     ] as const)
       p[key] = profile[key];
     this.stats(id, true);
@@ -99,6 +102,9 @@ export class RPGSystem {
       'kills',
       'potions',
       'manaPotions',
+      'dailyDay',
+      'dailyProgress',
+      'dailyDone',
     ] as const)
       profile[key] = p[key];
     this.storage.save();
@@ -374,6 +380,14 @@ export class RPGSystem {
         stats: {},
         price: 0,
       });
+  }
+  /** Adds Aether Dust (daily rewards, extra drops) and notifies the client sheet. */
+  addDust(id: string, amount: number) {
+    const profile = this.profiles.get(id);
+    if (!profile || amount <= 0) return;
+    profile.aetherDust += amount;
+    this.send(id);
+    this.storage.save();
   }
   frontierReward(id: string): boolean {
     const profile = this.profiles.get(id);

@@ -3,6 +3,8 @@ import {
   DUMMY,
   CUSTODIAN,
   NPCS,
+  RESIDENTS,
+  residentPose,
   nearbyNpc,
   OBSTACLES,
   WORLD_BOUND,
@@ -452,6 +454,11 @@ export class HUD {
 
     dot(DUMMY.x, DUMMY.z, '#d9be7c', 2);
     for (const npc of NPCS) dot(npc.x, npc.z, '#f4d48f', 3);
+    const seconds = Date.now() / 1000;
+    for (const npc of RESIDENTS) {
+      const pose = residentPose(npc, seconds);
+      dot(pose.x, pose.z, '#e8dfc0', 2);
+    }
     if (centerX) dot(FRONTIER.beacon.x, FRONTIER.beacon.z, '#b797fa', 4);
     if (x >= 86) {
       dot(GROVE.altar.x, GROVE.altar.z, '#7de8c2', 4);

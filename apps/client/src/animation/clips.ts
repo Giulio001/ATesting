@@ -56,3 +56,17 @@ export function classClips(classId: string): ClipAliases {
   if (classId === 'VOID_KNIGHT') return MAGIC_CLIPS;
   return MELEE_CLIPS;
 }
+
+/**
+ * Quaternius villagers ship a much smaller clip set than the hero packs:
+ * a neutral idle, a walk, a wave and an interaction. Mapping them onto the
+ * shared aliases keeps one AnimationController for heroes and townsfolk alike.
+ */
+export const TOWNSFOLK_CLIPS: ClipAliases = {
+  Idle: ['Idle', 'Idle_Neutral'],
+  Run: ['Walk', 'Run'],
+  Block: ['Interact', 'Wave'],
+  Skill01: ['Wave', 'Interact', 'Idle_Neutral'],
+  Hit: ['Idle_Neutral', 'Idle'],
+  Death: ['Idle_Neutral', 'Idle'],
+};

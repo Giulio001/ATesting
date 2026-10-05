@@ -1,13 +1,76 @@
 {
   "characters": {
-    "warrior": { "url": "./assets/characters/warrior/warrior.glb", "height": 1.85 },
-    "archer": { "url": "./assets/characters/archer/archer.glb", "height": 1.85 },
-    "mage": { "url": "./assets/characters/mage/mage.glb", "height": 1.85 }
+    "warrior": {
+      "url": "./assets/characters/warrior/warrior.glb",
+      "height": 1.85
+    },
+    "archer": {
+      "url": "./assets/characters/archer/archer.glb",
+      "height": 1.85
+    },
+    "mage": {
+      "url": "./assets/characters/mage/mage.glb",
+      "height": 1.85
+    }
   },
   "enemies": {
-    "minion": { "url": "./assets/enemies/minion/minion.glb", "height": 1.7 },
-    "brute": { "url": "./assets/enemies/warrior/warrior.glb", "height": 2.05 },
-    "stalker": { "url": "./assets/enemies/rogue/rogue.glb", "height": 1.78 },
-    "caster": { "url": "./assets/enemies/mage/mage.glb", "height": 2.25 }
+    "minion": {
+      "url": "./assets/enemies/minion/minion.glb",
+      "height": 1.7
+    },
+    "brute": {
+      "url": "./assets/enemies/warrior/warrior.glb",
+      "height": 2.05
+    },
+    "stalker": {
+      "url": "./assets/enemies/rogue/rogue.glb",
+      "height": 1.78
+    },
+    "caster": {
+      "url": "./assets/enemies/mage/mage.glb",
+      "height": 2.25
+    }
+  },
+  "npc": {
+    "man_farmer": {
+      "url": "./assets/npc/man_farmer/man_farmer.glb",
+      "height": 1.76
+    },
+    "man_worker": {
+      "url": "./assets/npc/man_worker/man_worker.glb",
+      "height": 1.8
+    },
+    "man_adventurer": {
+      "url": "./assets/npc/man_adventurer/man_adventurer.glb",
+      "height": 1.82
+    },
+    "man_king": {
+      "url": "./assets/npc/man_king/man_king.glb",
+      "height": 1.88
+    },
+    "man_hooded": {
+      "url": "./assets/npc/man_hooded/man_hooded.glb",
+      "height": 1.79
+    },
+    "woman_medieval": {
+      "url": "./assets/npc/woman_medieval/woman_medieval.glb",
+      "height": 1.72
+    },
+    "woman_witch": {
+      "url": "./assets/npc/woman_witch/woman_witch.glb",
+      "height": 1.74
+    },
+    "woman_adventurer": {
+      "url": "./assets/npc/woman_adventurer/woman_adventurer.glb",
+      "height": 1.71
+    },
+    "woman_worker": {
+      "url": "./assets/npc/woman_worker/woman_worker.glb",
+      "height": 1.7
+    },
+    "woman_casual": {
+      "url": "./assets/npc/woman_casual/woman_casual.glb",
+      "height": 1.69
+    }
   }
 }

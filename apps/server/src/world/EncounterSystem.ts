@@ -9,6 +9,16 @@ import {
   isHostile,
   enemyRules,
   nearbyNpc,
+  nearbyResident,
+  dailyRotation,
+  dailyCounts,
+  dayIndex,
+  slotProgress,
+  slotDone,
+  withSlotProgress,
+  markSlotDone,
+  type DailyQuest,
+  type NpcDefinition,
   MAX_LEVEL,
   BATTLE_START,
   QUEST_GOAL,
@@ -41,6 +51,10 @@ interface Callbacks {
   loot?(id: string, elite: boolean): void;
   frontierReward?(id: string): boolean;
   groveReward?(id: string): boolean;
+  /** Toast for daily progress and other system messages. */
+  notice?(id: string, text: string): void;
+  /** Grants the non-gold parts of a daily reward (Aether Dust) and persists. */
+  daily?(id: string, quest: DailyQuest, slot: number): void;
 }
 export class EncounterSystem {
   private runtime = new Map<string, EnemyRuntime>();
@@ -75,6 +89,17 @@ export class EncounterSystem {
     if (npc?.id === 'grove-altar') {
       this.groveAltar(id);
       return;
+    }
+    if (npc?.service === 'daily') {
+      this.dailyBoard(id);
+      return;
+    }
+    if (!npc) {
+      const resident = nearbyResident(p.x, p.z);
+      if (resident) {
+        this.residentChat(id, resident);
+        return;
+      }
     }
     if (npc?.id === 'frontier-scout') {
       p.hp = p.maxHp;
@@ -238,6 +263,110 @@ export class EncounterSystem {
       });
     } else this.groveAltar(id);
   }
+  /** Rolls the daily board over when the UTC day changes. */
+  private refreshDaily(id: string, p: PlayerState, now: number) {
+    const day = dayIndex(now);
+    if (p.dailyDay === day) return;
+    const returning = p.dailyDay !== 0;
+    p.dailyDay = day;
+    p.dailyProgress = 0;
+    p.dailyDone = 0;
+    if (returning) this.events.notice?.(id, 'Nuove taglie giornaliere alla Bacheca.');
+  }
+
+  /** Counts one kill toward the active dailies and warns when a taglia is ready. */
+  private progressDaily(id: string, type: string, elite: boolean) {
+    const p = this.state.players.get(id);
+    if (!p) return;
+    this.refreshDaily(id, p, Date.now());
+    const boss = type === 'champion' || type === 'guardian';
+    dailyRotation(p.dailyDay).forEach((quest, slot) => {
+      if (slotDone(p.dailyDone, slot)) return;
+      if (slotProgress(p.dailyProgress, slot) >= quest.goal) return;
+      if (!dailyCounts(quest, type, elite, boss)) return;
+      const value = Math.min(quest.goal, slotProgress(p.dailyProgress, slot) + 1);
+      p.dailyProgress = withSlotProgress(p.dailyProgress, slot, value);
+      if (value >= quest.goal)
+        this.events.notice?.(id, `Taglia pronta: «${quest.title}». Riscuotila dal Banditore.`);
+    });
+  }
+
+  /** A townsperson answers with a flavour line and points at the daily board. */
+  private residentChat(id: string, npc: NpcDefinition) {
+    this.refreshDaily(id, this.state.players.get(id)!, Date.now());
+    const lines = npc.lines ?? [];
+    const line = lines.length
+      ? lines[Math.abs(dayIndex(Date.now()) * 7 + npc.id.length) % lines.length]
+      : '';
+    const tail =
+      ' Le taglie del giorno si leggono alla Bacheca, accanto alla fontana: cambiano ogni mattina.';
+    this.events.dialogue(id, {
+      title: `${npc.name} · ${npc.role}`,
+      text: line ? `${line}${tail}` : `Buongiorno, viandante.${tail}`,
+      complete: false,
+    });
+  }
+
+  /** The bounty board: lists the three dailies and offers to claim finished ones. */
+  private dailyBoard(id: string) {
+    const p = this.state.players.get(id)!;
+    this.refreshDaily(id, p, Date.now());
+    const quests = dailyRotation(p.dailyDay);
+    const text = quests
+      .map((quest, slot) => {
+        const progress = Math.min(quest.goal, slotProgress(p.dailyProgress, slot));
+        const state = slotDone(p.dailyDone, slot)
+          ? 'riscossa'
+          : progress >= quest.goal
+            ? 'pronta da riscuotere'
+            : `${progress}/${quest.goal}`;
+        const reward = `${quest.gold} oro · ${quest.xp} EXP · ${quest.dust} Polvere d’Aether${quest.potions ? ` · ${quest.potions} pozioni` : ''}`;
+        return `${slot + 1}. ${quest.title} — ${state}\n${quest.description}\nRicompensa: ${reward}`;
+      })
+      .join('\n\n');
+    const claimable = quests
+      .map((quest, slot) => ({ quest, slot }))
+      .filter(
+        ({ quest, slot }) =>
+          !slotDone(p.dailyDone, slot) && slotProgress(p.dailyProgress, slot) >= quest.goal,
+      );
+    this.events.dialogue(id, {
+      title: 'Banditore delle Taglie · Missioni giornaliere',
+      text: `${text}\n\nLe taglie si rinnovano ogni giorno alle 05:00 UTC.`,
+      complete: quests.every((_, slot) => slotDone(p.dailyDone, slot)),
+      choices: claimable.length
+        ? claimable.map(({ quest, slot }) => ({
+            id: `daily:${slot}`,
+            label: `Riscuoti: ${quest.title}`,
+          }))
+        : undefined,
+    });
+  }
+
+  answerDaily(id: string, value: unknown) {
+    const p = this.state.players.get(id);
+    if (!p || p.hp <= 0) return;
+    const npc = nearbyNpc(p.x, p.z) ?? nearbyResident(p.x, p.z);
+    if (npc?.service !== 'daily') return;
+    const slot =
+      typeof value === 'string' && value.startsWith('daily:') ? Number(value.slice(6)) : -1;
+    this.refreshDaily(id, p, Date.now());
+    const quest = dailyRotation(p.dailyDay)[slot];
+    if (!quest || slotDone(p.dailyDone, slot) || slotProgress(p.dailyProgress, slot) < quest.goal) {
+      this.dailyBoard(id);
+      return;
+    }
+    p.dailyDone = markSlotDone(p.dailyDone, slot);
+    if (quest.potions) p.potions = Math.min(99, p.potions + quest.potions);
+    this.grant(id, quest.xp, quest.gold, true);
+    this.events.daily?.(id, quest, slot);
+    this.events.dialogue(id, {
+      title: 'Taglia riscossa',
+      text: `«${quest.title}» è compiuta. Tieni la ricompensa, avventuriero: domani la Bacheca ne offrirà altre.`,
+      complete: true,
+    });
+  }
+
   potion(id: string, now: number) {
     const p = this.state.players.get(id);
     if (!p || p.hp <= 0 || p.hp >= p.maxHp || p.potions <= 0 || now < p.potionUntil) return;
@@ -325,6 +454,7 @@ export class EncounterSystem {
         const rules = enemyRules(e.type);
         this.events.loot?.(participant, rules.elite);
         this.grant(participant, rules.xp, rules.gold, false);
+        this.progressDaily(participant, e.type, rules.elite);
       }
       this.runtime.get(key)!.contributors.clear();
     }
@@ -348,6 +478,7 @@ export class EncounterSystem {
     if (regen) this.lastRegen = now;
     this.state.serverTime = now;
     this.state.players.forEach((p, id) => {
+      this.refreshDaily(id, p, now);
       if (p.hp <= 0) {
         if (now >= p.deadUntil) {
           const body = this.events.physicsPlayer(id);
