@@ -1,0 +1,20 @@
+{
+  "name": "@aetheria/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --import tsx src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --external:@colyseus/* --external:@dimforge/* --outfile=dist/index.js",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@aetheria/shared": "*",
+    "@colyseus/core": "0.16.26",
+    "@colyseus/ws-transport": "0.16.5",
+    "@dimforge/rapier3d-compat": "0.21.0",
+    "@colyseus/schema": "^3.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

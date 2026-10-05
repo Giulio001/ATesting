@@ -4,6 +4,12 @@ A playable, independent 3D experiment for **Aetheria — Shards of the Void**. T
 
 **This repository is isolated from the live Aetheria 2D game.** It does not import its server, database, accounts, assets, launcher or deployment configuration. All progress here is temporary and room-local.
 
+## Preview
+
+![Lumengate 3D desktop prototype](docs/lumengate-desktop.png)
+
+[Portrait mobile preview](docs/lumengate-mobile.png). These are screenshots of the playable prototype, with the provisional Warrior.
+
 ## Play locally
 
 Install **Node.js 22.12+** (Node 24 LTS recommended), then:

@@ -1,0 +1,743 @@
+:root {
+  font-family:
+    Inter,
+    Segoe UI,
+    system-ui,
+    sans-serif;
+  color: #e8e9df;
+  background: #10181e;
+  font-synthesis: none;
+  font-size: 14px;
+  --gold: #d5bc7c;
+  --muted: #9daea9;
+  --teal: #8bdbd1;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+#vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, transparent 38%, #07121d55 100%);
+}
+header {
+  position: absolute;
+  top: 29px;
+  left: 34px;
+  right: 34px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.brand-mark {
+  font-size: 45px;
+  color: var(--gold);
+  text-shadow: 0 0 24px #b39c5550;
+}
+h1 {
+  font:
+    23px Georgia,
+    serif;
+  letter-spacing: 5px;
+  margin: 0;
+}
+.brand div > span {
+  font-size: 8px;
+  letter-spacing: 3.4px;
+  color: var(--gold);
+}
+.lab {
+  margin-left: 10px;
+  border: 1px solid #d5bc7c4a;
+  border-radius: 3px;
+  padding: 5px 7px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--gold);
+}
+#connection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #c2d5ce;
+  background: #101d2590;
+  border: 1px solid #c6dab617;
+  padding: 9px 12px;
+  border-radius: 3px;
+}
+#connection i {
+  width: 6px;
+  height: 6px;
+  background: #cfaf78;
+  border-radius: 100%;
+  box-shadow: 0 0 8px currentColor;
+}
+#connection.online i {
+  background: #92d3a3;
+}
+#location {
+  position: absolute;
+  left: 50%;
+  top: 89px;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  text-shadow: 0 2px 20px #04121f;
+}
+.eyebrow {
+  font-size: 9px;
+  letter-spacing: 2.4px;
+  color: var(--gold);
+}
+#location h2 {
+  font:
+    38px Georgia,
+    serif;
+  letter-spacing: 3px;
+  margin: 8px 0;
+}
+#location p {
+  font:
+    italic 13px Georgia,
+    serif;
+  color: #b7c8c5;
+  margin: 7px 0;
+}
+.ornament {
+  color: var(--gold);
+  font-size: 8px;
+}
+.ornament:before,
+.ornament:after {
+  content: '';
+  display: inline-block;
+  width: 65px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #b9a373);
+  vertical-align: middle;
+  margin: 0 13px;
+}
+.ornament:after {
+  transform: rotate(180deg);
+}
+#quest {
+  position: absolute;
+  top: 191px;
+  left: 36px;
+  width: 250px;
+  padding: 20px 22px;
+  background: linear-gradient(100deg, #0e1b25db, #0e1b2577);
+  border-left: 2px solid #b59b68;
+  border-top: 1px solid #d5bc7c21;
+  pointer-events: none;
+}
+h3 {
+  font:
+    20px Georgia,
+    serif;
+  margin: 9px 0 13px;
+}
+#quest p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #afbebc;
+  margin: 0 0 16px;
+}
+#quest > div {
+  font-size: 11px;
+  color: #e0dac2;
+}
+#objective {
+  color: var(--gold);
+  font-size: 16px;
+  margin-right: 6px;
+}
+#asset-note {
+  font-size: 9px;
+  color: #82958f;
+  display: block;
+  margin-top: 22px;
+}
+#map-panel {
+  position: absolute;
+  top: 100px;
+  right: 35px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+#minimap {
+  width: 146px;
+  height: 146px;
+  border-radius: 50%;
+  border: 1px solid #ccb78385;
+  box-shadow:
+    0 0 0 5px #0e1b2460,
+    0 8px 30px #0005;
+}
+#map-panel > span {
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 3px;
+  margin-top: 15px;
+}
+#map-panel > small {
+  font-size: 10px;
+  color: #99aaa7;
+  margin-top: 5px;
+}
+#player-hud {
+  position: absolute;
+  bottom: 74px;
+  left: 36px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 17px 13px 0;
+  pointer-events: none;
+}
+.portrait {
+  width: 58px;
+  height: 64px;
+  border: 1px solid #bb9f6580;
+  border-radius: 26px 26px 8px 8px;
+  display: grid;
+  place-items: center;
+  font-size: 35px;
+  color: var(--gold);
+  background: linear-gradient(#213744, #0a171e);
+  box-shadow: 0 0 15px #0005;
+}
+#player-hud .eyebrow {
+  font-size: 8px;
+  letter-spacing: 1.8px;
+}
+#player-hud strong {
+  display: block;
+  font:
+    19px Georgia,
+    serif;
+  margin: 5px 0 8px;
+}
+.health {
+  position: relative;
+  width: 184px;
+  height: 12px;
+  background: #07161dd9;
+  border: 1px solid #98c3b440;
+  transform: skew(-8deg);
+}
+.health > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #2a6e60, #85ba96);
+}
+.health small {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  font-size: 8px;
+  line-height: 10px;
+  color: #eff7eb;
+  transform: skew(8deg);
+}
+#player-hud p {
+  font-size: 9px;
+  margin: 6px 0 0;
+  color: #8faaa0;
+}
+#hotbar {
+  position: absolute;
+  bottom: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 9px;
+}
+#hotbar button {
+  position: relative;
+  width: 77px;
+  height: 82px;
+  background: linear-gradient(140deg, #21363bf5, #0e1c26f5);
+  border: 1px solid #a18f6755;
+  border-bottom: 2px solid #baa26b;
+  color: #e7ddc0;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px #0004;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+  touch-action: none;
+}
+#hotbar button:hover,
+#hotbar button.active {
+  background: #36525a;
+  transform: translateY(-3px);
+}
+#hotbar button small {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #c6c0a8;
+}
+#hotbar button > span {
+  font:
+    34px Georgia,
+    serif;
+  display: block;
+  margin: 9px 0 3px;
+}
+#hotbar button b {
+  font-size: 9px;
+  font-weight: 400;
+}
+#skill {
+  border-color: #65a9b288 !important;
+  color: #a4e3e8 !important;
+}
+#cooldown {
+  position: absolute;
+  inset: 0;
+  display: none;
+  background: #081925c9;
+  place-items: center;
+  font:
+    24px Georgia,
+    serif;
+  border-radius: 3px;
+}
+footer {
+  position: absolute;
+  bottom: 24px;
+  left: 36px;
+  right: 36px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #b2c1bd;
+  pointer-events: none;
+}
+kbd {
+  font: 9px inherit;
+  color: #d6cdac;
+  margin-right: 5px;
+}
+footer i {
+  font-style: normal;
+  color: #776b52;
+  margin: 0 11px;
+}
+#fps {
+  font-size: 9px;
+  color: #7e9e93;
+}
+#entry {
+  position: absolute;
+  inset: 0;
+  background: #08121c66;
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+}
+.entry-card {
+  width: min(430px, 90vw);
+  padding: 43px 39px 30px;
+  background: linear-gradient(130deg, #162632f5, #0b171ff5);
+  border: 1px solid #b39b694a;
+  border-top: 2px solid #c5ac70;
+  text-align: center;
+  box-shadow: 0 30px 100px #0006;
+  border-radius: 4px;
+}
+.entry-card h2 {
+  font:
+    36px Georgia,
+    serif;
+  margin: 16px 0;
+}
+.entry-card p {
+  color: #adbfbd;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.entry-card label {
+  display: block;
+  text-align: left;
+  margin: 24px 0 9px;
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+.entry-card input {
+  display: block;
+  width: 100%;
+  border: 1px solid #70847e66;
+  background: #09171f;
+  padding: 13px;
+  color: #eceddc;
+  border-radius: 3px;
+  outline: none;
+}
+.entry-card input:focus {
+  border-color: var(--gold);
+}
+.entry-card button {
+  margin: 15px 0 19px;
+  width: 100%;
+  border: 1px solid #bea772;
+  background: linear-gradient(100deg, #ceb77c, #aa8a50);
+  color: #1d292e;
+  padding: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  border-radius: 3px;
+}
+.entry-card button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.entry-card small {
+  color: #7e9593;
+  font-size: 9px;
+}
+.entry-card #error {
+  color: #efad9f;
+  font-size: 11px;
+  margin-bottom: 0;
+}
+#world-labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+.world-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  font-size: 10px;
+  text-align: center;
+  text-shadow: 0 2px 4px #000;
+}
+.dummy-label {
+  color: #f5e4b8;
+}
+.hp-bar {
+  display: block;
+  width: 100px;
+  height: 5px;
+  background: #06151ccc;
+  border: 1px solid #cfb47b66;
+  margin: 6px auto;
+}
+.hp-bar i {
+  display: block;
+  height: 100%;
+  background: #c1a772;
+  transition: width 0.15s;
+}
+.world-label small {
+  color: #b6c7c0;
+  font-size: 9px;
+}
+.damage {
+  position: absolute;
+  color: #fff0b6;
+  font:
+    24px Georgia,
+    serif;
+  text-shadow: 0 2px 5px #000;
+  animation: damage 1s ease-out forwards;
+}
+.damage.skill {
+  color: #a2f4ff;
+  font-size: 30px;
+}
+@keyframes damage {
+  to {
+    transform: translateY(-55px);
+    opacity: 0;
+  }
+}
+#toast {
+  position: absolute;
+  bottom: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #ebe2bc;
+  background: #13232de8;
+  border: 1px solid #ccb87f40;
+  padding: 12px 18px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  text-align: center;
+}
+#toast.visible {
+  opacity: 1;
+}
+#joystick {
+  display: none;
+  position: absolute;
+  left: 28px;
+  bottom: 87px;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: #c8ddda11;
+  border: 1px solid #cbded447;
+  touch-action: none;
+}
+#joystick > div {
+  position: absolute;
+  left: 35px;
+  top: 35px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #a9c0b83d;
+  border: 1px solid #d4c48b70;
+  pointer-events: none;
+}
+.hidden {
+  display: none !important;
+}
+@media (pointer: coarse) {
+  #joystick {
+    display: block;
+  }
+  #hotbar {
+    left: auto;
+    right: 23px;
+    transform: none;
+    bottom: 93px;
+  }
+  #hotbar button {
+    width: 66px;
+    height: 72px;
+  }
+  #player-hud {
+    bottom: 22px;
+    left: 28px;
+  }
+  footer {
+    display: none;
+  }
+  #hotbar button small {
+    font-size: 7px;
+  }
+}
+@media (max-width: 760px) {
+  header {
+    top: 16px;
+    left: 18px;
+    right: 18px;
+  }
+  .brand {
+    gap: 7px;
+  }
+  .brand-mark {
+    font-size: 29px;
+  }
+  h1 {
+    font-size: 16px;
+    letter-spacing: 3px;
+  }
+  .brand div > span {
+    font-size: 6px;
+    letter-spacing: 1.7px;
+  }
+  .lab {
+    font-size: 7px;
+    margin-left: 0;
+    letter-spacing: 1px;
+  }
+  #connection {
+    font-size: 9px;
+    padding: 7px;
+  }
+  #location {
+    top: 84px;
+  }
+  #location h2 {
+    font-size: 27px;
+  }
+  #location .eyebrow {
+    font-size: 7px;
+    white-space: nowrap;
+  }
+  #location p {
+    font-size: 11px;
+  }
+  #quest {
+    top: 179px;
+    left: 18px;
+    width: 194px;
+    padding: 13px 15px;
+  }
+  #quest .eyebrow {
+    font-size: 7px;
+  }
+  h3 {
+    font-size: 17px;
+  }
+  #quest p {
+    font-size: 10px;
+  }
+  #quest > div {
+    font-size: 10px;
+  }
+  #asset-note {
+    font-size: 8px;
+    margin-top: 12px;
+  }
+  #map-panel {
+    right: 21px;
+    top: 168px;
+  }
+  #minimap {
+    width: 85px;
+    height: 85px;
+  }
+  #map-panel > span {
+    font-size: 7px;
+    letter-spacing: 2px;
+  }
+  #map-panel > small {
+    font-size: 8px;
+    width: 90px;
+    text-align: center;
+  }
+  #player-hud strong {
+    font-size: 16px;
+  }
+  .health {
+    width: 140px;
+  }
+  .portrait {
+    height: 54px;
+    width: 45px;
+    font-size: 28px;
+  }
+  #player-hud {
+    gap: 10px;
+  }
+  footer span:first-child {
+    display: none;
+  }
+  .entry-card {
+    padding: 30px 28px;
+  }
+  #toast {
+    width: 80%;
+    bottom: 225px;
+  }
+}
+@media (max-height: 550px) {
+  #quest {
+    top: 115px;
+  }
+  #location {
+    top: 65px;
+  }
+  #location p,
+  .ornament {
+    display: none;
+  }
+  #map-panel {
+    top: 85px;
+  }
+  #hotbar {
+    bottom: 40px;
+  }
+  #player-hud {
+    bottom: 26px;
+  }
+  #joystick {
+    bottom: 40px;
+  }
+  .entry-card {
+    padding: 20px 30px;
+  }
+  .entry-card h2 {
+    margin: 10px 0;
+  }
+  .entry-card label {
+    margin-top: 10px;
+  }
+  .entry-card button {
+    margin: 10px 0;
+  }
+}
+@media (pointer: coarse) and (max-width: 760px) {
+  #quest {
+    padding: 11px 14px;
+    width: 196px;
+  }
+  #quest h3 {
+    font-size: 15px;
+    margin: 8px 0 10px;
+  }
+  #quest p,
+  #asset-note {
+    display: none;
+  }
+  #hotbar {
+    bottom: 113px;
+  }
+  #joystick {
+    bottom: 110px;
+  }
+}
+@media (pointer: coarse) and (max-height: 550px) {
+  #quest {
+    display: none;
+  }
+  #player-hud {
+    bottom: 8px;
+  }
+  #hotbar {
+    bottom: 80px;
+  }
+  #joystick {
+    bottom: 80px;
+    width: 90px;
+    height: 90px;
+  }
+  #joystick > div {
+    left: 24px;
+    top: 24px;
+  }
+}

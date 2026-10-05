@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111a23" />
+    <meta name="description" content="Aetheria 3D — un esperimento giocabile a Lumengate." />
+    <title>Aetheria 3D · Lumengate</title>
+  </head>
+  <body>
+    <canvas id="game" aria-label="Lumengate 3D"></canvas>
+    <div id="vignette"></div>
+    <header>
+      <div class="brand">
+        <span class="brand-mark">✧</span>
+        <div>
+          <h1>AETHERIA</h1>
+          <span>SHARDS OF THE VOID</span>
+        </div>
+        <b class="lab">3D LAB</b>
+      </div>
+      <div id="connection"><i></i><span>Preparazione del mondo…</span></div>
+    </header>
+    <div id="location">
+      <span class="eyebrow">LE TERRE DEL PRIMO GIURAMENTO</span>
+      <h2>Lumengate</h2>
+      <div class="ornament">◆</div>
+      <p>Il vuoto attende. La città resiste.</p>
+    </div>
+    <aside id="quest">
+      <span class="eyebrow">PROVA DI COMBATTIMENTO</span>
+      <h3>Il primo giuramento</h3>
+      <p>Raggiungi il manichino nella piazza.<br />Metti alla prova la tua lama.</p>
+      <div><span id="objective">◇</span> <span id="quest-text">Colpisci il manichino</span></div>
+      <small id="asset-note">Warrior provvisorio · modello articolato</small>
+    </aside>
+    <aside id="map-panel">
+      <canvas id="minimap" width="180" height="180" aria-label="Minimappa"></canvas
+      ><span>LUMENGATE</span><small id="population">Piazza di addestramento</small>
+    </aside>
+    <div id="world-labels"></div>
+    <div id="toast" role="status"></div>
+    <section id="player-hud">
+      <div class="portrait">♜</div>
+      <div>
+        <span class="eyebrow">GUARDIAN · LIVELLO 1</span><strong id="player-name">Viandante</strong>
+        <div class="health"><span></span><small>100 / 100</small></div>
+        <p>Area sicura · addestramento</p>
+      </div>
+    </section>
+    <nav id="hotbar" aria-label="Azioni">
+      <button id="attack" title="Attacco · click sinistro o Spazio">
+        <small>CLICK / SPAZIO</small><span>⚔</span><b>Fendente</b></button
+      ><button id="skill" title="Onda d’Ether · Q">
+        <small>Q</small><span>✧</span><b>Onda d’Ether</b><em id="cooldown"></em></button
+      ><button id="run" title="Corsa · Shift">
+        <small>SHIFT</small><span>»</span><b>Corsa</b>
+      </button>
+    </nav>
+    <footer>
+      <span
+        ><kbd>W A S D</kbd> Muoviti <i>·</i> <kbd>SHIFT</kbd> Corri <i>·</i>
+        <kbd>CLICK</kbd> Attacca <i>·</i> <kbd>Q</kbd> Skill <i>·</i>
+        <kbd>ROTELLINA</kbd> Zoom</span
+      ><span id="fps">— FPS</span>
+    </footer>
+    <div id="joystick" aria-label="Joystick di movimento"><div></div></div>
+    <div id="entry">
+      <div class="entry-card">
+        <span class="eyebrow">UN NUOVO ORIZZONTE</span>
+        <h2>Varca la soglia.</h2>
+        <p>
+          La prima pietra di Aetheria in tre dimensioni.<br />Una piazza, una lama. Il resto inizia
+          da qui.
+        </p>
+        <label for="name">NOME DEL GUARDIAN</label
+        ><input id="name" maxlength="18" placeholder="Viandante" autocomplete="off" /><button
+          id="enter"
+          disabled
+        >
+          Il mondo prende forma…</button
+        ><small>Esperimento indipendente · Aetheria 2D resta online</small>
+        <p id="error" role="alert"></p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

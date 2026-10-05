@@ -1,0 +1,19 @@
+{
+  "name": "@aetheria/client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --open",
+    "dev:lan": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@aetheria/shared": "*",
+    "three": "0.186.1",
+    "colyseus.js": "0.16.22"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0"
+  }
+}
