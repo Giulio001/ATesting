@@ -5,7 +5,6 @@ import {
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
   DT,
-  WALK_SPEED,
   RUN_SPEED,
   type InputFrame,
 } from './index.ts';
@@ -52,7 +51,8 @@ export class PhysicsWorld {
     return { body, collider };
   }
   move(player: PhysicsPlayer, input: InputFrame) {
-    const speed = input.run ? RUN_SPEED : WALK_SPEED;
+    const length = Math.hypot(input.x, input.z);
+    const speed = length > 0.01 ? RUN_SPEED / length : 0;
     this.controller.computeColliderMovement(
       player.collider,
       { x: input.x * speed * DT, y: -0.3 * DT, z: input.z * speed * DT },

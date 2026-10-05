@@ -1,0 +1,1502 @@
+/* Aetheria's Ossidiana & Ottone handoff, adapted to the Three.js viewport. */
+:root {
+  --gold: #f0c96a;
+  --brass: #c69a45;
+  --muted: #8ba3bf;
+  color: #f4ead2;
+}
+.playing {
+  font-family: 'VT323', monospace;
+  font-size: 19px;
+}
+.playing header .brand {
+  display: none;
+}
+.playing header {
+  top: auto;
+  bottom: 5px;
+  left: auto;
+  right: 28px;
+}
+.playing #connection {
+  font: 14px 'VT323';
+  padding: 3px 7px;
+  border: 0;
+  background: rgba(7, 11, 16, 0.8);
+}
+.playing #location {
+  position: fixed;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.playing #location h2 {
+  font: 14px 'Press Start 2P';
+  letter-spacing: 0;
+  color: #f4ead2;
+  text-shadow: 0 2px 6px #05070a;
+}
+.playing #settings {
+  right: 28px;
+  top: 112px;
+  font: 12px 'VT323';
+  z-index: 4;
+}
+.playing #settings select {
+  font: 14px 'VT323';
+}
+#player-hud,
+#quest,
+#chat-panel,
+#rpg-window {
+  border: 0;
+  border-radius: 0;
+  background: rgba(8, 12, 18, 0.84);
+  box-shadow: inset 2px 0 0 var(--brass);
+  backdrop-filter: blur(6px);
+}
+#player-hud::before,
+#quest::before,
+#rpg-window::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-top: 2px solid var(--gold);
+  border-left: 2px solid var(--gold);
+  pointer-events: none;
+}
+#player-hud::after,
+#quest::after,
+#rpg-window::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  border-bottom: 2px solid var(--brass);
+  border-right: 2px solid var(--brass);
+  pointer-events: none;
+}
+#player-hud {
+  position: fixed;
+  left: 24px;
+  top: 24px;
+  bottom: auto;
+  width: 300px;
+  padding: 16px 18px 14px;
+  align-items: start;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(9, 14, 20, 0.88), rgba(7, 11, 16, 0.82));
+}
+#player-hud .portrait {
+  width: 46px;
+  height: 46px;
+  border-radius: 0;
+  border: 0;
+  box-shadow: inset 0 0 0 1px #c69a458c;
+  flex: 0 0 46px;
+  font-size: 30px;
+}
+#player-hud > div:last-child {
+  flex: 1;
+  min-width: 0;
+}
+#player-hud strong {
+  font: 10px 'Press Start 2P';
+  line-height: 1.6;
+  letter-spacing: 0;
+  display: block;
+  margin: 7px 0 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#player-hud .eyebrow {
+  font: 7px 'Press Start 2P';
+  line-height: 1.8;
+  letter-spacing: 0;
+  color: var(--gold);
+}
+.health,
+.mana {
+  width: 100%;
+  height: 20px;
+  border: 0;
+  border-radius: 0;
+  background: #0a1219;
+  box-shadow: inset 0 0 0 1px #ffffff12;
+  margin: 5px 0;
+}
+.mana {
+  height: 14px;
+}
+.health > span {
+  background: linear-gradient(#d9695c, #a63a37);
+  border-right: 2px solid #ffd9a0;
+}
+.mana > span {
+  background: linear-gradient(#5b9ad6, #2f6da4);
+  border-right: 2px solid #bfe0ff;
+}
+.health > small,
+.mana > small {
+  font: 15px 'VT323';
+  letter-spacing: 0;
+  line-height: 1;
+}
+.stamina {
+  height: 4px;
+  background: #0a1219;
+  margin-top: 5px;
+}
+.stamina > span {
+  height: 100%;
+  display: block;
+  background: #9aa864;
+  width: 100%;
+}
+.experience {
+  height: 3px;
+  margin-top: 7px;
+  background: #0a1219;
+  width: 100%;
+}
+.experience > span {
+  background: var(--brass);
+}
+#player-hud p {
+  font: 14px 'VT323';
+  margin: 7px 0 3px;
+  line-height: 1.1;
+}
+#pouch {
+  font: 15px 'VT323';
+  flex-wrap: wrap;
+  gap: 5px;
+}
+#pouch #gold {
+  color: var(--gold);
+}
+#pouch #xp {
+  color: var(--muted);
+}
+#quest {
+  position: fixed;
+  top: 256px;
+  left: 24px;
+  width: 288px;
+  padding: 16px 18px;
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+#quest .eyebrow {
+  font: 6px 'Press Start 2P';
+  letter-spacing: 0;
+  line-height: 1.8;
+}
+#quest h3 {
+  font: 9px 'Press Start 2P';
+  line-height: 1.8;
+  letter-spacing: 0;
+  color: var(--gold);
+  margin: 12px 0;
+}
+#quest p {
+  font: 18px 'VT323';
+  line-height: 1.15;
+  margin: 8px 0;
+}
+#quest > div {
+  font: 16px 'VT323';
+  line-height: 1.2;
+}
+#asset-note {
+  font: 14px 'VT323';
+  letter-spacing: 0;
+}
+#map-panel {
+  position: fixed;
+  top: auto;
+  right: 28px;
+  bottom: 34px;
+  left: auto;
+  width: 186px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  text-align: center;
+}
+.playing #minimap {
+  width: 180px;
+  height: 180px;
+  border: 2px solid var(--brass);
+  border-radius: 50%;
+  background: #101a25;
+  box-shadow: 0 0 0 3px #101a25a6;
+}
+.playing #map-panel > span {
+  font: 7px 'Press Start 2P';
+  letter-spacing: 0;
+  color: var(--gold);
+  margin-top: 6px;
+}
+.playing #map-panel > small {
+  font: 14px 'VT323';
+}
+#utility-menu {
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  display: flex;
+  gap: 10px;
+  z-index: 4;
+}
+#utility-menu button {
+  width: 64px;
+  height: 70px;
+  background: rgba(8, 12, 18, 0.86);
+  border: 0;
+  box-shadow: inset 0 0 0 1px #c69a4573;
+  color: var(--gold);
+  padding: 6px 2px;
+  display: grid;
+  justify-items: center;
+  align-content: space-between;
+}
+#utility-menu img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+}
+#utility-menu small {
+  font: 6px 'Press Start 2P';
+  line-height: 1.6;
+}
+.menu-sprite {
+  display: block;
+  width: 44px;
+  height: 44px;
+  background-image: url('/assets/aetheria/ui/menu/menu-icons.png');
+  background-size: 400% 300%;
+  background-position: calc(var(--sprite-x) * 100% / 3) calc(var(--sprite-y) * 100% / 2);
+}
+#hotbar {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 4;
+}
+#hotbar button {
+  position: relative;
+  width: 64px;
+  height: 72px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(8, 12, 18, 0.86);
+  box-shadow: inset 0 0 0 1px #c69a4573;
+  padding: 0;
+  color: #f4ead2;
+  touch-action: none;
+}
+#hotbar button:hover {
+  background: rgba(30, 26, 14, 0.92);
+  box-shadow: inset 0 0 0 2px var(--gold);
+}
+#hotbar button small {
+  font: 6px 'Press Start 2P';
+  line-height: 1.4;
+  left: 5px;
+  top: 6px;
+  color: var(--gold);
+  letter-spacing: 0;
+}
+#hotbar button > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 28px;
+}
+#hotbar button img {
+  width: 43px;
+  height: 43px;
+  object-fit: contain;
+  image-rendering: auto;
+  margin-top: 3px;
+}
+#hotbar button b {
+  font: 6px 'Press Start 2P';
+  letter-spacing: 0;
+  bottom: 6px;
+  line-height: 1.5;
+}
+#hotbar button em {
+  font: 21px 'VT323';
+  font-style: normal;
+  background: rgba(2, 5, 8, 0.72);
+  color: var(--gold);
+  position: absolute;
+  inset: 0;
+  display: none;
+  place-items: center;
+  z-index: 2;
+}
+#hotbar button#interact.nearby {
+  background: rgba(30, 26, 14, 0.92);
+  box-shadow:
+    inset 0 0 0 2px var(--gold),
+    0 0 22px #f0c96a59;
+}
+#chat-panel {
+  position: fixed;
+  left: 24px;
+  bottom: 32px;
+  width: 310px;
+  padding: 10px 12px 0;
+  z-index: 4;
+  font: 17px 'VT323';
+}
+.chat-channels {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 6px;
+}
+.chat-channels button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 6px 'Press Start 2P';
+  padding: 5px 0;
+}
+.chat-channels button.active {
+  color: var(--gold);
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+#chat-expand {
+  margin-left: auto;
+  font: 22px 'VT323';
+  width: 26px;
+}
+#chat-lines {
+  height: 74px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  color: #dfe7ee;
+}
+#chat-lines p {
+  margin: 3px 0;
+  line-height: 1.05;
+}
+#chat-lines strong {
+  color: var(--gold);
+  font-weight: 400;
+}
+#chat-latest {
+  display: none;
+}
+#chat-form {
+  display: flex;
+  margin: 8px -12px 0;
+  background: rgba(4, 8, 13, 0.7);
+  border-top: 1px solid #c69a454d;
+  height: 36px;
+}
+#chat-input {
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #dfe7ee;
+  padding: 0 12px;
+  font: 18px 'VT323';
+}
+#chat-form button {
+  width: 40px;
+  background: transparent;
+  color: var(--gold);
+  border: 0;
+  font: 25px 'VT323';
+}
+.playing footer {
+  position: fixed;
+  left: 360px;
+  bottom: 7px;
+  right: 240px;
+  display: flex;
+  font: 12px 'VT323';
+  gap: 10px;
+  justify-content: center;
+}
+.playing footer kbd {
+  font: 11px 'VT323';
+  padding: 0 2px;
+}
+.playing footer span:first-child {
+  white-space: nowrap;
+}
+.playing #toast {
+  font: 18px 'VT323';
+  bottom: 125px;
+  max-width: 500px;
+}
+#rpg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(5, 9, 13, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  font: 19px 'VT323';
+  backdrop-filter: blur(3px);
+}
+#rpg-overlay.hidden {
+  display: none;
+}
+#rpg-window {
+  position: relative;
+  width: 860px;
+  max-width: 100%;
+  max-height: calc(100dvh - 48px);
+  background: rgba(9, 14, 20, 0.96);
+  box-shadow:
+    inset 2px 0 0 var(--brass),
+    0 6px 22px #0205098c;
+  display: flex;
+  flex-direction: column;
+}
+.rpg-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #c69a454d;
+}
+.rpg-heading small {
+  font: 7px 'Press Start 2P';
+  color: var(--muted);
+  letter-spacing: 0.14em;
+}
+.rpg-heading h2 {
+  font: 14px 'Press Start 2P';
+  color: var(--gold);
+  margin: 10px 0 0;
+  letter-spacing: 0;
+}
+.rpg-heading > div:last-child {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+#panel-close {
+  font: 28px 'VT323';
+  width: 44px;
+  height: 44px;
+}
+#panel-content {
+  padding: 24px;
+  overflow: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--brass) #0a1219;
+}
+#panel-content h3 {
+  font: 9px 'Press Start 2P';
+  line-height: 1.8;
+  letter-spacing: 0;
+  color: var(--gold);
+  margin: 0 0 14px;
+}
+#panel-content p {
+  line-height: 1.25;
+  margin: 10px 0;
+}
+#rpg-window button {
+  border: 1px solid #c69a4566;
+  color: var(--gold);
+  background: rgba(16, 26, 38, 0.72);
+  padding: 7px 12px;
+  font: 18px 'VT323';
+  min-height: 36px;
+}
+#rpg-window button:hover {
+  background: #c69a4526;
+  border-color: var(--gold);
+}
+#rpg-window input {
+  max-width: 100%;
+  min-width: 0;
+  background: rgba(4, 8, 13, 0.7);
+  border: 1px solid #c69a454d;
+  padding: 9px 12px;
+  color: #f4ead2;
+  font: 19px 'VT323';
+  outline-color: var(--gold);
+}
+.rpg-footnote {
+  padding: 12px 24px;
+  border-top: 1px solid #c69a454d;
+  font: 15px 'VT323';
+  color: var(--muted);
+}
+.inventory-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+}
+.inventory-layout h3 {
+  display: flex;
+  justify-content: space-between;
+}
+.inventory-layout h3 small {
+  font: 16px 'VT323';
+  color: var(--muted);
+}
+.equipment-section {
+  grid-column: 1;
+}
+.bag-section {
+  grid-column: 2;
+}
+.paper-doll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: radial-gradient(ellipse at 50% 35%, #182e42, transparent 65%);
+}
+.paper-doll-crest {
+  color: var(--gold);
+  font: 68px Georgia;
+  display: grid;
+  text-align: center;
+  gap: 8px;
+  text-shadow: 0 0 30px #c69a4540;
+}
+.paper-doll-crest small {
+  font: 7px 'Press Start 2P';
+  color: var(--muted);
+}
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px 8px;
+  margin-top: 14px;
+  width: 100%;
+}
+.equipment-grid > div {
+  position: relative;
+  min-width: 0;
+}
+.equipment-grid label {
+  display: block;
+  font: 14px 'VT323';
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 4px;
+}
+#rpg-window .item-slot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 0;
+  padding: 3px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #9fb3bf80;
+  overflow: hidden;
+}
+.item-slot img {
+  width: 100%;
+  height: 100%;
+  max-height: 56px;
+  object-fit: contain;
+}
+.item-slot > span {
+  font: 11px 'VT323';
+  color: #6f8399;
+}
+.item-slot b {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  color: #fff;
+  font: 15px 'VT323';
+}
+.item-slot small {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  font: 5px 'Press Start 2P';
+  color: var(--gold);
+}
+#rpg-window .item-slot.empty {
+  border-color: #c69a4529;
+}
+#rpg-window .item-slot.uncommon {
+  border-color: #7fc7a3;
+}
+#rpg-window .item-slot.rare {
+  border-color: #6fa8e8;
+}
+#rpg-window .item-slot.epic {
+  border-color: #b678d8;
+}
+#rpg-window .item-slot.legendary {
+  border-color: #e6a63c;
+}
+#rpg-window .item-slot.selected {
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+#rpg-window .unequip {
+  position: absolute;
+  right: -5px;
+  top: 14px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  font: 16px 'VT323';
+  background: #0b1420;
+  opacity: 0.7;
+}
+.bag-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 9px;
+}
+.bag-pager {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+}
+.bag-pager button {
+  width: 44px;
+  height: 36px;
+}
+.item-details {
+  margin-top: 22px;
+  border-top: 1px solid #c69a454d;
+  padding-top: 18px;
+  color: var(--muted);
+  min-height: 78px;
+}
+.item-details > div {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.item-details img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+.item-details h3 {
+  margin: 0 0 5px !important;
+}
+.item-details ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  list-style: none;
+  padding: 0;
+}
+.item-details b {
+  color: #7fc7a3;
+}
+.item-details small {
+  font-size: 15px;
+}
+.item-details .rare {
+  color: #6fa8e8 !important;
+}
+.gold-button {
+  border-color: var(--gold) !important;
+}
+.skill-cards {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+.skill-cards article,
+.shop-list article {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  background: #101a26b8;
+  border-left: 2px solid #c69a454d;
+}
+.skill-cards img,
+.shop-list img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.skill-cards h3,
+.shop-list h3 {
+  margin-bottom: 6px !important;
+}
+.skill-cards small {
+  color: var(--gold);
+}
+.panel-intro {
+  color: var(--muted);
+}
+.shop-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+.shop-list article > div {
+  flex: 1;
+}
+.shop-list button {
+  flex-shrink: 0;
+}
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.menu-grid button {
+  min-height: 116px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.menu-grid button > span:last-child {
+  font: 7px 'Press Start 2P';
+  line-height: 1.7;
+}
+.return-icon {
+  font: 40px 'VT323';
+}
+.quest-entry {
+  padding: 20px;
+  border-left: 2px solid var(--gold);
+  background: #101a26b8;
+}
+.quest-entry > small {
+  color: var(--muted);
+}
+.quest-entry h3 {
+  margin: 18px 0 !important;
+}
+.quest-entry strong {
+  color: var(--gold);
+}
+.quest-meter {
+  height: 4px;
+  background: #0a1219;
+}
+.quest-meter > i {
+  height: 100%;
+  display: block;
+  background: var(--gold);
+}
+.character-summary {
+  text-align: center;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+  margin: 24px 0;
+}
+.stat-grid p {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #c69a4529;
+  padding-bottom: 8px;
+}
+.stat-grid b {
+  color: var(--gold);
+  font-weight: 400;
+}
+.clan-heading {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.clan-heading > span {
+  font: 60px Georgia;
+  color: var(--gold);
+}
+.clan-heading small {
+  color: var(--muted);
+}
+.clan-roster {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.clan-roster > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #101a26b8;
+  padding: 10px 14px;
+}
+.clan-roster i {
+  width: 7px;
+  height: 7px;
+  background: #52616b;
+  border-radius: 50%;
+}
+.clan-roster i.online {
+  background: #7fc7a3;
+}
+.clan-roster span {
+  flex: 1;
+}
+.clan-roster small {
+  color: var(--muted);
+  margin-left: 8px;
+}
+.clan-create {
+  display: flex;
+  gap: 12px;
+  margin: 24px 0;
+}
+.clan-create input {
+  flex: 1;
+}
+.clan-list {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  background: #101a26b8;
+  margin: 10px 0;
+}
+.clan-list h3 {
+  margin: 0 !important;
+}
+#clan-gold {
+  width: 100px;
+}
+#large-map {
+  display: block;
+  width: min(100%, 440px);
+  height: auto;
+  border: 2px solid var(--brass);
+  margin: auto;
+}
+.map-legend {
+  text-align: center;
+  color: var(--muted);
+}
+#utility-menu,
+#chat-panel {
+  visibility: hidden;
+}
+.playing #utility-menu,
+.playing #chat-panel {
+  visibility: visible;
+}
+#damage-screen {
+  z-index: 7;
+  pointer-events: none;
+}
+.npc-label {
+  font: 7px 'Press Start 2P';
+  line-height: 1.8;
+}
+.npc-label small {
+  font: 15px 'VT323';
+  color: var(--muted);
+}
+@media (max-width: 1250px) and (pointer: fine) {
+  #hotbar button {
+    width: 54px;
+    height: 65px;
+  }
+  #hotbar {
+    gap: 6px;
+  }
+  #chat-panel {
+    width: 260px;
+  }
+  #map-panel {
+    width: 156px;
+  }
+  .playing #minimap {
+    width: 150px;
+    height: 150px;
+  }
+  .playing footer span:first-child {
+    display: none;
+  }
+}
+@media (max-width: 767px), (pointer: coarse) {
+  .playing header {
+    right: 14px;
+    bottom: 56px;
+  }
+  .playing #connection {
+    font-size: 11px;
+  }
+  .playing #location {
+    top: 154px;
+    left: 14px;
+    transform: none;
+    text-align: left;
+  }
+  .playing #location h2 {
+    font-size: 8px;
+  }
+  .playing #settings {
+    right: 78px;
+    top: 147px;
+    left: auto;
+  }
+  .playing #settings select {
+    max-width: 100px;
+    font: 12px 'VT323';
+  }
+  #player-hud {
+    top: 14px;
+    left: 14px;
+    bottom: auto;
+    right: auto;
+    width: 222px;
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .portrait {
+    display: none !important;
+  }
+  #player-hud .eyebrow {
+    font-size: 6px;
+  }
+  #player-hud strong {
+    font-size: 8px;
+    margin: 5px 0 7px;
+  }
+  #player-hud p {
+    font-size: 12px;
+    margin: 5px 0;
+  }
+  #player-hud .health {
+    height: 17px;
+  }
+  #player-hud .mana {
+    height: 10px;
+  }
+  #player-hud .mana > small {
+    font-size: 12px;
+  }
+  #pouch {
+    font-size: 13px;
+    gap: 4px;
+  }
+  .stamina {
+    height: 3px;
+  }
+  .experience {
+    margin-top: 4px;
+  }
+  #map-panel {
+    top: 14px;
+    bottom: auto;
+    right: 14px;
+    left: auto;
+    width: 118px;
+  }
+  .playing #minimap {
+    width: 118px;
+    height: 118px;
+  }
+  .playing #map-panel > span {
+    font-size: 6px;
+    margin-top: 4px;
+  }
+  .playing #map-panel > small {
+    display: none;
+  }
+  #utility-menu {
+    right: 14px;
+    top: 151px;
+    gap: 0;
+  }
+  #utility-menu button {
+    width: 50px;
+    height: 50px;
+    padding: 4px;
+  }
+  #utility-menu button:not(:last-child) {
+    display: none;
+  }
+  #utility-menu img {
+    width: 28px;
+    height: 28px;
+  }
+  #utility-menu small {
+    font-size: 5px;
+  }
+  #quest {
+    top: 184px;
+    left: 14px;
+    width: 220px;
+    padding: 9px 12px;
+  }
+  #quest .eyebrow,
+  #asset-note,
+  #quest-description {
+    display: none !important;
+  }
+  #quest h3 {
+    font-size: 7px;
+    line-height: 1.6;
+    margin: 0 0 5px;
+  }
+  #quest > div {
+    font-size: 14px;
+  }
+  #hotbar {
+    left: auto;
+    right: 14px;
+    bottom: 84px;
+    transform: none;
+    display: grid;
+    grid-template-columns: repeat(3, 56px);
+    gap: 7px;
+    align-items: center;
+  }
+  #hotbar button {
+    width: 56px;
+    height: 56px;
+  }
+  #hotbar button small {
+    font-size: 5px;
+    top: 4px;
+    left: 4px;
+  }
+  #hotbar button b {
+    font-size: 5px;
+    bottom: 4px;
+  }
+  #hotbar button img {
+    width: 34px;
+    height: 34px;
+    margin-top: 0;
+  }
+  #hotbar button > span {
+    font-size: 25px;
+  }
+  #aether {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  #guard {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  #skill {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  #potion {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  #mana-potion {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  #attack,
+  #interact {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  #interact {
+    display: none;
+  }
+  #hotbar.near-npc #attack {
+    display: none;
+  }
+  #hotbar.near-npc #interact {
+    display: block;
+  }
+  #joystick {
+    display: block;
+    left: 14px;
+    bottom: 86px;
+    width: 124px;
+    height: 124px;
+    border: 2px solid var(--brass);
+    background: rgba(8, 12, 18, 0.6);
+  }
+  #joystick > div {
+    width: 54px;
+    height: 54px;
+    left: 33px;
+    top: 33px;
+    background: radial-gradient(circle at 38% 32%, #2c4258, #14212f);
+    border: 1px solid var(--brass);
+  }
+  #chat-panel {
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    width: auto;
+    height: 40px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #chat-panel .chat-channels {
+    padding: 0;
+    gap: 8px;
+  }
+  #chat-panel .chat-channels button[data-channel='GUILD'] {
+    display: none;
+  }
+  #chat-panel .chat-channels button {
+    font-size: 5px;
+  }
+  #chat-expand {
+    position: absolute;
+    right: 8px;
+    top: 5px;
+    height: 30px;
+    width: 28px;
+  }
+  #chat-latest {
+    display: block;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    font: 15px 'VT323';
+    padding-right: 28px;
+  }
+  #chat-lines,
+  #chat-form {
+    display: none;
+  }
+  #chat-panel.expanded {
+    height: 205px;
+    display: block;
+    padding: 12px;
+  }
+  #chat-panel.expanded .chat-channels {
+    padding-bottom: 8px;
+  }
+  #chat-panel.expanded .chat-channels button[data-channel='GUILD'] {
+    display: block;
+  }
+  #chat-panel.expanded #chat-latest {
+    display: none;
+  }
+  #chat-panel.expanded #chat-lines {
+    display: block;
+    height: 124px;
+  }
+  #chat-panel.expanded #chat-form {
+    display: flex;
+    margin: 8px -12px 0;
+    height: 36px;
+  }
+  .playing footer {
+    display: none;
+  }
+  .playing #toast {
+    bottom: 226px;
+    max-width: calc(100% - 36px);
+    font-size: 17px;
+    padding: 9px 14px;
+  }
+  .world-label {
+    font-size: 8px;
+  }
+  .npc-label {
+    font-size: 6px;
+  }
+  .npc-label small {
+    font-size: 12px;
+  }
+  #dialogue {
+    left: 14px;
+    right: 14px;
+    bottom: 240px;
+    width: auto;
+    transform: none;
+    padding: 18px;
+    font: 19px 'VT323';
+  }
+  #rpg-overlay {
+    padding: 10px;
+    background: rgba(5, 9, 13, 0.9);
+  }
+  #rpg-window {
+    max-height: calc(100dvh - 20px);
+    width: 100%;
+  }
+  .rpg-heading {
+    padding: 14px 16px;
+  }
+  .rpg-heading h2 {
+    font-size: 11px;
+    margin-top: 8px;
+  }
+  .rpg-heading small {
+    font-size: 6px;
+  }
+  .rpg-heading > div:last-child {
+    gap: 8px;
+  }
+  #panel-back {
+    font-size: 16px !important;
+    padding: 6px 8px !important;
+  }
+  #panel-content {
+    padding: 16px;
+  }
+  #panel-content h3 {
+    font-size: 8px;
+  }
+  .rpg-footnote {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+  .inventory-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .equipment-section {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .bag-section {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .paper-doll {
+    flex-direction: row;
+    gap: 16px;
+  }
+  .paper-doll-crest {
+    font-size: 52px;
+    flex-shrink: 0;
+  }
+  .paper-doll-crest small {
+    font-size: 5px;
+  }
+  .equipment-grid {
+    margin-top: 0;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+  }
+  .equipment-grid label {
+    font-size: 11px;
+  }
+  .equipment-grid .item-slot {
+    max-width: 58px;
+  }
+  .bag-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 7px;
+  }
+  .item-details {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+  .item-details img {
+    width: 44px;
+    height: 44px;
+  }
+  .item-details small {
+    font-size: 12px;
+  }
+  .item-details ul {
+    gap: 4px 16px;
+    font-size: 16px;
+  }
+  .skill-cards article,
+  .shop-list article {
+    padding: 12px;
+    gap: 10px;
+  }
+  .skill-cards img,
+  .shop-list img {
+    width: 44px;
+    height: 44px;
+  }
+  .skill-cards small {
+    font-size: 15px;
+  }
+  .shop-list article {
+    flex-wrap: wrap;
+  }
+  .shop-list article > div {
+    min-width: 140px;
+  }
+  .shop-list button {
+    margin-left: auto;
+  }
+  .menu-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+  }
+  .menu-grid button {
+    min-height: 98px !important;
+    padding: 10px 3px !important;
+    gap: 12px;
+  }
+  .menu-grid button > span:last-child {
+    font-size: 6px;
+  }
+  .menu-grid .menu-sprite {
+    width: 38px;
+    height: 38px;
+  }
+  .clan-create {
+    flex-direction: column;
+  }
+  .clan-list {
+    padding: 10px;
+    gap: 10px;
+  }
+  .clan-list button {
+    font-size: 16px !important;
+  }
+  .stat-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+@media (max-height: 540px) and (pointer: coarse) {
+  #player-hud {
+    width: 204px;
+    padding: 8px 12px;
+  }
+  #player-hud p,
+  .experience,
+  #pouch {
+    display: none;
+  }
+  #quest {
+    display: none;
+  }
+  #map-panel {
+    width: 90px;
+  }
+  .playing #minimap {
+    width: 90px;
+    height: 90px;
+  }
+  .playing #settings {
+    top: 105px;
+  }
+  .playing #location {
+    top: 128px;
+  }
+  #utility-menu {
+    top: 119px;
+  }
+  #hotbar {
+    bottom: 67px;
+  }
+  #joystick {
+    bottom: 68px;
+    width: 104px;
+    height: 104px;
+  }
+  #joystick > div {
+    top: 24px;
+    left: 24px;
+  }
+  #toast {
+    bottom: 160px !important;
+  }
+  #dialogue {
+    bottom: 80px;
+    left: 170px;
+    right: 200px;
+    font-size: 17px;
+  }
+}
+
+#hotbar button > span {
+  margin: 0;
+}
+#hotbar button b {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+#pouch #xp {
+  font: 14px 'VT323';
+}
+#pouch #gold {
+  font: 17px 'VT323';
+}
+
+#dialogue {
+  background: rgba(9, 14, 20, 0.96);
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset 2px 0 0 var(--brass);
+  font: 19px 'VT323';
+}
+#dialogue h3 {
+  font: 11px 'Press Start 2P';
+  line-height: 1.8;
+  color: var(--gold);
+  letter-spacing: 0;
+}
+#dialogue p {
+  font: 19px 'VT323';
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+#dialogue .eyebrow {
+  font: 6px 'Press Start 2P';
+  line-height: 1.8;
+}
+#dialogue button {
+  font: 19px 'VT323';
+  color: var(--gold);
+  border: 1px solid #c69a4573;
+  background: #101a26b8;
+  border-radius: 0;
+}
+
+#chat-panel .chat-channels #chat-expand {
+  font: 24px 'VT323';
+}
+@media (max-width: 767px), (pointer: coarse) {
+  .playing #location {
+    display: none;
+  }
+  .playing #settings {
+    top: 218px;
+    right: 14px;
+  }
+  #chat-latest {
+    font-size: 14px;
+  }
+}
+@media (max-height: 540px) and (pointer: coarse) {
+  .playing #settings {
+    top: 178px;
+  }
+}

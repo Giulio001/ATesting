@@ -1,31 +1,46 @@
 import { PerspectiveCamera, Raycaster, Plane, Vector3, Vector2 } from 'three';
-import type { AttackKind, InputFrame } from '@aetheria/shared';
+import type { AttackKind, InputFrame, AbilityId } from '@aetheria/shared';
 export class InputController {
   private keys = new Set<string>();
   private stick = new Vector2();
-  private runHeld = false;
   private pointer = new Vector2();
   private aim = false;
   private yaw = Math.PI;
   private enabled = false;
+  private menu = false;
+  private attackHeld = false;
+  private lastAuto = 0;
   private ray = new Raycaster();
   private plane = new Plane(new Vector3(0, 1, 0), 0);
   private hit = new Vector3();
   onAttack: (kind: AttackKind, yaw: number) => void = () => {};
+  onAbility: (ability: AbilityId, yaw: number) => void = () => {};
+  onManaPotion: () => void = () => {};
+  onInteract: () => void = () => {};
+  onPotion: () => void = () => {};
+  onEscape: () => void = () => {};
   constructor(
     private canvas: HTMLCanvasElement,
     private camera: PerspectiveCamera,
     private position: () => Vector3,
   ) {
     addEventListener('keydown', (e) => {
-      if ((e.target as HTMLElement)?.matches('input')) return;
+      if ((e.target as HTMLElement)?.matches('input, select, textarea, [contenteditable]')) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code))
         e.preventDefault();
       this.keys.add(e.code);
       if (!e.repeat && this.enabled) {
         if (e.code === 'Space') this.attack('slash');
-        if (e.code === 'KeyQ') this.attack('skill');
+        if (e.code === 'Digit1') this.attack('slash');
+        if (e.code === 'KeyQ' || e.code === 'Digit2') this.ability('SLASH');
+        if (e.code === 'KeyR' || e.code === 'Digit3') this.ability('GUARD');
+        if (e.code === 'KeyF' || e.code === 'Digit4') this.ability('BURST');
+        if (e.code === 'KeyG' && !this.menu) this.onManaPotion();
+        if (e.code === 'KeyE') this.onInteract();
+        if (e.code === 'KeyH' && !this.menu) this.onPotion();
       }
+      if (e.code === 'Escape') this.onEscape();
     });
     addEventListener('keyup', (e) => this.keys.delete(e.code));
     addEventListener('blur', () => this.reset());
@@ -44,29 +59,46 @@ export class InputController {
         this.aim = true;
         this.updateAim();
         this.attack('slash');
+        this.attackHeld = true;
+        canvas.setPointerCapture(e.pointerId);
       }
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     document.getElementById('attack')!.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.attack('slash');
+      this.attackHeld = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    });
+    addEventListener('pointerup', () => {
+      this.attackHeld = false;
+    });
+    addEventListener('pointercancel', () => {
+      this.attackHeld = false;
+    });
+    document.getElementById('interact')!.addEventListener('click', () => {
+      if (this.enabled) this.onInteract();
+    });
+    document.getElementById('potion')!.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (this.enabled && !this.menu) this.onPotion();
     });
     document.getElementById('skill')!.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.attack('skill');
+      this.ability('BURST');
     });
-    const run = document.getElementById('run')!;
-    run.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      run.setPointerCapture(e.pointerId);
-      this.runHeld = true;
-      run.classList.add('active');
-    });
-    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
-      run.addEventListener(event, () => {
-        this.runHeld = false;
-        run.classList.remove('active');
+    for (const [id, ability] of [
+      ['aether', 'SLASH'],
+      ['guard', 'GUARD'],
+    ] as const)
+      document.getElementById(id)!.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        this.ability(ability);
       });
+    document.getElementById('mana-potion')!.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (this.enabled && !this.menu) this.onManaPotion();
+    });
     const joystick = document.getElementById('joystick')!,
       knob = joystick.firstElementChild as HTMLElement;
     let pointerId = -1;
@@ -102,13 +134,16 @@ export class InputController {
     this.enabled = value;
     this.reset();
   }
+  setMenuOpen(value: boolean) {
+    this.menu = value;
+    this.reset();
+  }
   private reset() {
     this.keys.clear();
     this.stick.set(0, 0);
-    this.runHeld = false;
+    this.attackHeld = false;
     const knob = document.querySelector<HTMLElement>('#joystick>div');
     if (knob) knob.style.transform = '';
-    document.getElementById('run')!.classList.remove('active');
   }
   private updateAim() {
     if (this.aim) {
@@ -120,31 +155,44 @@ export class InputController {
     }
   }
   private attack(kind: AttackKind) {
-    if (!this.enabled) return;
+    if (!this.enabled || this.menu) return;
+    this.lastAuto = performance.now();
     this.updateAim();
     this.onAttack(kind, this.yaw);
   }
+  ability(ability: AbilityId) {
+    if (!this.enabled || this.menu) return;
+    this.updateAim();
+    this.onAbility(ability, this.yaw);
+  }
   sample(seq: number): InputFrame {
     const k = this.keys;
-    let sx = this.enabled
-      ? this.stick.x +
-        Number(k.has('KeyD') || k.has('ArrowRight')) -
-        Number(k.has('KeyA') || k.has('ArrowLeft'))
-      : 0;
-    let sz = this.enabled
-      ? this.stick.y +
-        Number(k.has('KeyS') || k.has('ArrowDown')) -
-        Number(k.has('KeyW') || k.has('ArrowUp'))
-      : 0;
+    if (this.attackHeld && performance.now() - this.lastAuto > 680) this.attack('slash');
+    let sx =
+      this.enabled && !this.menu
+        ? this.stick.x +
+          Number(k.has('KeyD') || k.has('ArrowRight')) -
+          Number(k.has('KeyA') || k.has('ArrowLeft'))
+        : 0;
+    let sz =
+      this.enabled && !this.menu
+        ? this.stick.y +
+          Number(k.has('KeyS') || k.has('ArrowDown')) -
+          Number(k.has('KeyW') || k.has('ArrowUp'))
+        : 0;
     const length = Math.hypot(sx, sz);
-    if (length > 1) {
+    const moving = length > 0.12;
+    if (moving) {
       sx /= length;
       sz /= length;
+    } else {
+      sx = 0;
+      sz = 0;
     }
     // Screen axes are projected onto the fixed isometric camera's ground plane.
     const x = sx * 0.874 + sz * 0.486,
       z = -sx * 0.486 + sz * 0.874;
-    if (length > 0.01) {
+    if (moving) {
       this.yaw = Math.atan2(x, z);
       this.aim = false;
     }
@@ -152,7 +200,7 @@ export class InputController {
       seq,
       x,
       z,
-      run: this.enabled && (this.runHeld || k.has('ShiftLeft') || k.has('ShiftRight')),
+      run: this.enabled && !this.menu && moving,
       yaw: this.yaw,
     };
   }

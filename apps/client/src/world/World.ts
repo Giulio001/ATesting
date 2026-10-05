@@ -1,5 +1,6 @@
 import * as T from 'three';
-import { OBSTACLES, DUMMY } from '@aetheria/shared';
+import { OBSTACLES, DUMMY, CUSTODIAN } from '@aetheria/shared';
+import { paintedTexture } from './Art';
 const material = (color: number, metalness = 0, roughness = 0.85) =>
   new T.MeshStandardMaterial({ color, metalness, roughness, flatShading: true });
 const stone = material(0x59656a),
@@ -17,11 +18,22 @@ export class World {
   readonly dummy = new T.Group();
   private portal = new T.Group();
   private particles: T.Points;
+  private water?: T.Mesh;
+  private rift = new T.Group();
+  private custodian = new T.Group();
+  private occluders: T.Mesh[] = [];
+  private occlusionRay = new T.Raycaster();
   private flameLights: T.PointLight[] = [];
   constructor() {
-    this.scene.background = new T.Color(0x273b4d);
-    this.scene.fog = new T.FogExp2(0x273b4d, 0.02);
-    this.scene.add(new T.HemisphereLight(0xb8cfd1, 0x2b3530, 2.1));
+    this.scene.background = new T.Color(0x536d82);
+    this.scene.fog = new T.FogExp2(0x536d82, 0.017);
+    this.scene.add(new T.HemisphereLight(0xc9dcdf, 0x3b443d, 1.45));
+    stone.map = paintedTexture('stone');
+    stone.bumpMap = stone.map;
+    stone.bumpScale = 0.07;
+    roof.map = paintedTexture('roof');
+    roof.bumpMap = roof.map;
+    roof.bumpScale = 0.04;
     const sun = new T.DirectionalLight(0xffe9bf, 3.1);
     sun.position.set(-12, 23, 10);
     sun.castShadow = true;
@@ -36,7 +48,14 @@ export class World {
     const fill = new T.DirectionalLight(0x86b5dc, 1.3);
     fill.position.set(16, 9, -15);
     this.scene.add(fill);
-    this.mesh(new T.CylinderGeometry(36, 38, 2, 64), material(0x344641), this.scene, 0, -1.04, 0);
+    this.mesh(
+      new T.CylinderGeometry(36, 38, 2, 64),
+      new T.MeshStandardMaterial({ color: 0x77967c, map: paintedTexture('grass'), roughness: 1 }),
+      this.scene,
+      0,
+      -1.04,
+      0,
+    );
     this.mesh(new T.CylinderGeometry(10, 10, 0.08, 64), stone, this.scene, 0, -0.12, 0);
     // A single instanced draw for the hand-laid paving stones.
     const paving = new T.InstancedMesh(
@@ -74,7 +93,10 @@ export class World {
       const g = new T.Group();
       g.position.set(o.x, 0, o.z);
       this.scene.add(g);
-      if (o.kind === 'house') this.house(g, o.hx, o.hz, o.height);
+      if (o.kind === 'house') {
+        this.house(g, o.hx, o.hz, o.height);
+        this.addOccluder(g);
+      }
       if (o.kind === 'wall') this.tower(g);
       if (o.kind === 'tree') this.tree(g, o.height);
       if (o.kind === 'rock') {
@@ -83,6 +105,11 @@ export class World {
         r.rotation.set(0.3, o.x, 0.2);
       }
       if (o.kind === 'shrine') this.shrine(g);
+      if (o.kind === 'well') this.fountain(g);
+      if (o.kind === 'gate') {
+        this.mesh(new T.CylinderGeometry(0.55, 0.7, 4.8, 8), stone, g, 0, 2.4);
+        this.addOccluder(g);
+      }
     }
     // Background walls and distant citadel stay outside the playable square.
     for (let x = -25; x <= 25; x += 5) {
@@ -111,7 +138,7 @@ export class World {
         r = 15.5 + this.noise(i, 31) * 8.2;
       const x = Math.cos(a) * r,
         z = Math.sin(a) * r;
-      if (OBSTACLES.some((o) => Math.abs(x - o.x) < o.hx + 1 || Math.abs(z - o.z) < o.hz + 1))
+      if (OBSTACLES.some((o) => Math.abs(x - o.x) < o.hx + 1 && Math.abs(z - o.z) < o.hz + 1))
         continue;
       const plant = this.mesh(
         new T.ConeGeometry(0.17, 0.65, 3),
@@ -124,6 +151,7 @@ export class World {
       plant.rotation.y = a;
     }
     this.makeDummy();
+    this.details();
     const geometry = new T.BufferGeometry();
     const positions = new Float32Array(150 * 3);
     for (let i = 0; i < 150; i++) {
@@ -205,6 +233,245 @@ export class World {
       hz + 0.22,
     );
     this.mesh(new T.BoxGeometry(0.38, 0.06, 0.08), gold, banner, 0, -0.05, 0.05);
+    for (const x of [-hx + 0.18, 0, hx - 0.18])
+      this.mesh(new T.BoxGeometry(0.15, h * 0.65, 0.13), wood, g, x, h * 0.325, hz + 0.16);
+    this.mesh(new T.BoxGeometry(hx * 2, 0.13, 0.15), wood, g, 0, h * 0.55, hz + 0.15);
+    for (const sign of [-1, 1]) {
+      const brace = this.mesh(
+        new T.BoxGeometry(0.09, h * 0.37, 0.12),
+        wood,
+        g,
+        sign * hx * 0.65,
+        h * 0.31,
+        hz + 0.17,
+      );
+      brace.rotation.z = sign * 0.7;
+      this.mesh(new T.BoxGeometry(0.6, 0.07, 0.65), dark, g, sign * hx * 0.8, 0.08, hz + 0.4);
+    }
+    this.mesh(new T.BoxGeometry(1.5, 0.08, 0.9), roof, g, 0, 2.2, hz + 0.4).rotation.x = 0.18;
+  }
+  private fountain(g: T.Group) {
+    this.mesh(new T.CylinderGeometry(1.55, 1.7, 0.25, 16), dark, g, 0, 0.125);
+    const basin = this.mesh(new T.TorusGeometry(1.35, 0.17, 8, 48), stone, g, 0, 0.4);
+    basin.rotation.x = -Math.PI / 2;
+    const trim = this.mesh(new T.TorusGeometry(1.37, 0.025, 6, 48), gold, g, 0, 0.58);
+    trim.rotation.x = -Math.PI / 2;
+    this.water = this.mesh(
+      new T.CircleGeometry(1.28, 64),
+      new T.MeshStandardMaterial({
+        color: 0x47969f,
+        metalness: 0.5,
+        roughness: 0.2,
+        emissive: 0x216e83,
+        emissiveIntensity: 0.45,
+        transparent: true,
+        opacity: 0.9,
+      }),
+      g,
+      0,
+      0.38,
+    );
+    this.water.rotation.x = -Math.PI / 2;
+    this.mesh(new T.CylinderGeometry(0.35, 0.6, 0.65, 8), stone, g, 0, 0.7);
+    this.mesh(
+      new T.OctahedronGeometry(0.5),
+      new T.MeshStandardMaterial({
+        color: 0xa1d3e7,
+        emissive: 0x387eab,
+        emissiveIntensity: 1.5,
+        metalness: 0.5,
+        roughness: 0.25,
+      }),
+      g,
+      0,
+      1.4,
+    );
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2;
+      const stream = this.mesh(
+        new T.CylinderGeometry(0.025, 0.06, 0.8, 6),
+        new T.MeshBasicMaterial({ color: 0x81c9d2, transparent: true, opacity: 0.5 }),
+        g,
+        Math.sin(a) * 0.4,
+        0.76,
+        Math.cos(a) * 0.4,
+      );
+      stream.rotation.z = Math.cos(a) * 0.6;
+      stream.rotation.x = Math.sin(a) * 0.6;
+    }
+    const light = new T.PointLight(0x73cde0, 2, 5);
+    light.position.y = 1.5;
+    g.add(light);
+  }
+  private addOccluder(root: T.Object3D) {
+    root.traverse((o) => {
+      if (o instanceof T.Mesh) {
+        o.material = Array.isArray(o.material)
+          ? o.material.map((m) => m.clone())
+          : o.material.clone();
+        this.occluders.push(o);
+      }
+    });
+  }
+  updateOcclusion(camera: T.Camera, hero: T.Vector3, dt: number) {
+    this.scene.updateMatrixWorld();
+    const origin = camera.getWorldPosition(new T.Vector3()),
+      end = hero.clone().add(new T.Vector3(0, 1, 0)),
+      direction = end.sub(origin),
+      distance = direction.length();
+    this.occlusionRay.set(origin, direction.normalize());
+    this.occlusionRay.far = distance;
+    const blocked = new Set(
+      this.occlusionRay.intersectObjects(this.occluders, false).map((h) => h.object),
+    );
+    for (const o of this.occluders) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        m.transparent = true;
+        m.opacity = T.MathUtils.lerp(m.opacity, blocked.has(o) ? 0.12 : 1, 1 - Math.exp(-dt * 15));
+        m.depthWrite = m.opacity > 0.9;
+      }
+      o.castShadow = mats[0].opacity > 0.9;
+    }
+  }
+  private details() {
+    // Foreground architecture fades when it blocks the Guardian.
+    const arch = new T.Group();
+    this.scene.add(arch);
+    this.mesh(new T.BoxGeometry(12.2, 0.55, 0.9), stone, arch, 0, 4.85, 10);
+    this.mesh(new T.BoxGeometry(12.3, 0.08, 1), gold, arch, 0, 5.17, 10);
+    for (const x of [-4.4, 4.4]) {
+      this.mesh(new T.BoxGeometry(0.7, 1.8, 0.05), material(0x335b70), arch, x, 3.8, 10.5);
+      this.mesh(new T.BoxGeometry(0.08, 1.2, 0.07), gold, arch, x, 3.8, 10.56);
+    }
+    const sigil = this.mesh(new T.OctahedronGeometry(0.4), gold, arch, 0, 5.4, 10);
+    sigil.scale.z = 0.2;
+    this.addOccluder(arch);
+    const dirt = this.mesh(
+      new T.CircleGeometry(7, 64),
+      new T.MeshStandardMaterial({ map: paintedTexture('rift'), color: 0x8b808e, roughness: 1 }),
+      this.scene,
+      0,
+      0.012,
+      17,
+    );
+    dirt.rotation.x = -Math.PI / 2;
+    dirt.scale.y = 1.1;
+    const boundary = this.mesh(
+      new T.RingGeometry(6.8, 6.84, 64),
+      material(0x647077),
+      this.scene,
+      0,
+      0.02,
+      17,
+    );
+    boundary.rotation.x = -Math.PI / 2;
+    this.rift.position.set(0, 0.8, 22);
+    this.scene.add(this.rift);
+    const shardMat = new T.MeshStandardMaterial({
+      color: 0x8b78c2,
+      emissive: 0x65369c,
+      emissiveIntensity: 1.3,
+      metalness: 0.5,
+      roughness: 0.32,
+    });
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2;
+      const shard = this.mesh(
+        new T.OctahedronGeometry(0.35),
+        shardMat,
+        this.rift,
+        Math.sin(a) * 1.1,
+        0.3 + (i % 3) * 0.25,
+        Math.cos(a) * 1.1,
+      );
+      shard.scale.y = 1.8;
+      shard.rotation.z = a;
+    }
+    const light = new T.PointLight(0xa576e6, 5, 9);
+    light.position.y = 1.8;
+    this.rift.add(light);
+    // Ser Aurel: an original robed custodian with a luminous staff.
+    this.custodian.position.set(CUSTODIAN.x, 0, CUSTODIAN.z);
+    this.custodian.rotation.y = 0.5;
+    this.scene.add(this.custodian);
+    const robes = material(0x3b526b),
+      skin = material(0xc7ab87);
+    this.mesh(new T.ConeGeometry(0.37, 1.25, 8), robes, this.custodian, 0, 0.66);
+    this.mesh(new T.SphereGeometry(0.21, 12, 8), skin, this.custodian, 0, 1.6, 0.04);
+    const hood = this.mesh(
+      new T.SphereGeometry(0.27, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.58),
+      robes,
+      this.custodian,
+      0,
+      1.66,
+      -0.025,
+    );
+    hood.rotation.x = -0.15;
+    this.mesh(new T.BoxGeometry(0.045, 0.75, 0.1), gold, this.custodian, 0, 1, 0.27);
+    for (const sign of [-1, 1]) {
+      const arm = this.mesh(
+        new T.CapsuleGeometry(0.12, 0.4, 4, 8),
+        robes,
+        this.custodian,
+        sign * 0.3,
+        1.15,
+      );
+      arm.rotation.z = sign * 0.25;
+      this.mesh(new T.SphereGeometry(0.11, 8, 8), skin, this.custodian, sign * 0.37, 0.91, 0.08);
+    }
+    this.mesh(new T.CylinderGeometry(0.035, 0.04, 1.85, 8), gold, this.custodian, 0.48, 1);
+    this.mesh(new T.OctahedronGeometry(0.14), glow, this.custodian, 0.48, 1.98);
+    for (const [x, z, color] of [
+      [-6, 3.4, 0x706144],
+      [6, 1, 0x675082],
+    ]) {
+      const npc = this.custodian.clone(true);
+      npc.position.set(x, 0, z);
+      npc.rotation.y = x < 0 ? 0.4 : -0.5;
+      npc.traverse((o) => {
+        if (o instanceof T.Mesh && o.material === robes) o.material = material(color);
+      });
+      this.scene.add(npc);
+    }
+    // Market canopy, crates, planters and scattered leaves add life to the square.
+    const stall = new T.Group();
+    stall.position.set(-6, 0, 2);
+    this.scene.add(stall);
+    this.mesh(new T.BoxGeometry(2, 0.85, 1.1), wood, stall, 0, 0.45);
+    for (const x of [-1.1, 1.1])
+      this.mesh(new T.CylinderGeometry(0.05, 0.05, 2.3, 6), wood, stall, x, 1.15, -0.3);
+    const tent = this.mesh(new T.BoxGeometry(2.6, 0.1, 1.9), material(0x567984), stall, 0, 2.25);
+    tent.rotation.x = -0.16;
+    for (const x of [-0.7, 0, 0.7])
+      this.mesh(
+        new T.CylinderGeometry(0.18, 0.16, 0.26, 8),
+        material(0x9c896d),
+        stall,
+        x,
+        0.99,
+        0.2,
+      );
+    for (const [x, z] of [
+      [-8, 3],
+      [-8, 4],
+      [8, -3],
+      [9, -3],
+    ]) {
+      this.mesh(new T.BoxGeometry(0.8, 0.75, 0.8), wood, this.scene, x, 0.375, z);
+      for (const a of [-0.22, 0.22])
+        this.mesh(new T.BoxGeometry(0.04, 0.78, 0.83), gold, this.scene, x + a, 0.39, z);
+    }
+    const leafMat = material(0x8b9265);
+    const leaves = new T.InstancedMesh(new T.PlaneGeometry(0.12, 0.2), leafMat, 150),
+      t = new T.Object3D();
+    for (let i = 0; i < 150; i++) {
+      t.position.set((this.noise(i, 72) - 0.5) * 28, 0.025, (this.noise(i, 49) - 0.5) * 28);
+      t.rotation.set(-Math.PI / 2, 0, this.noise(i, 4) * 6.28);
+      t.updateMatrix();
+      leaves.setMatrixAt(i, t.matrix);
+    }
+    this.scene.add(leaves);
   }
   private tower(g: T.Group) {
     this.mesh(new T.CylinderGeometry(1.2, 1.4, 6.5, 8), dark, g, 0, 3.25);
@@ -301,6 +568,10 @@ export class World {
     this.portal.rotation.y = time * 0.28;
     this.portal.position.y = 2.7 + Math.sin(time * 1.4) * 0.12;
     this.particles.rotation.y = time * 0.012;
+    this.rift.rotation.y = time * -0.16;
+    this.rift.position.y = 0.8 + Math.sin(time * 1.2) * 0.08;
+    this.custodian.rotation.y = Math.sin(time * 0.6) * 0.06;
+    if (this.water) this.water.rotation.z = time * 0.06;
     this.flameLights.forEach((l, i) => (l.intensity = 3 + Math.sin(time * 4 + i) * 0.3));
     this.dummy.scale.y = T.MathUtils.lerp(this.dummy.scale.y, hp <= 0 ? 0.15 : 1, 0.1);
   }

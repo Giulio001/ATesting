@@ -741,3 +741,336 @@ footer i {
     top: 24px;
   }
 }
+/* Adventure HUD and scalable settings. */
+#settings {
+  position: absolute;
+  right: 35px;
+  top: 76px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b1c2bf;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+#quality {
+  font: 10px inherit;
+  background: #172b32dd;
+  color: #ddd7bd;
+  border: 1px solid #b29e6655;
+  padding: 5px;
+  border-radius: 3px;
+}
+.playing #location {
+  top: 88px;
+  transition: opacity 0.5s;
+}
+.playing #location .eyebrow,
+.playing #location p,
+.playing #location .ornament {
+  display: none;
+}
+.playing #location h2 {
+  font-size: 25px;
+  letter-spacing: 2px;
+}
+#player-hud {
+  bottom: 69px;
+}
+.mana {
+  position: relative;
+  width: 184px;
+  height: 9px;
+  margin-top: 5px;
+  background: #09191fd9;
+  border: 1px solid #70a8bc44;
+  transform: skew(-8deg);
+}
+.mana > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #27586d, #74becb);
+}
+.mana small {
+  position: absolute;
+  inset: 0;
+  font-size: 7px;
+  line-height: 7px;
+  text-align: center;
+  transform: skew(8deg);
+}
+.experience {
+  height: 3px;
+  width: 184px;
+  background: #142d34;
+  margin-top: 6px;
+}
+.experience > span {
+  display: block;
+  height: 100%;
+  background: #d0b77c;
+  width: 0;
+}
+#pouch {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 9px;
+  color: #dac28a;
+  margin-top: 7px;
+}
+#pouch span:last-child {
+  font-size: 8px;
+  color: #9eb4b2;
+}
+#player-status.danger {
+  color: #e6a998;
+}
+#potion {
+  color: #b5d3ab !important;
+  border-bottom-color: #9bbc8c !important;
+}
+#interact.nearby {
+  border-color: #e9ce84;
+  box-shadow: 0 0 20px #e9be4933;
+}
+#hotbar button.unavailable {
+  filter: saturate(0.3);
+  opacity: 0.65;
+}
+#potion-cooldown {
+  position: absolute;
+  inset: 0;
+  display: none;
+  background: #081925cc;
+  place-items: center;
+  font:
+    24px Georgia,
+    serif;
+  border-radius: 3px;
+}
+.npc-label {
+  color: #efd39a;
+}
+.npc-label small {
+  display: block;
+  font-size: 9px;
+  color: #b8c8c1;
+  margin-top: 5px;
+}
+.enemy-label {
+  color: #e8b6c4;
+  font-size: 9px;
+}
+.enemy-label .hp-bar {
+  width: 75px;
+  border-color: #c7829455;
+}
+.enemy-label .hp-bar i {
+  background: #bd8795;
+}
+.enemy-label.elite {
+  color: #e9b4f0;
+}
+.enemy-label.elite .hp-bar {
+  width: 115px;
+}
+.enemy-label.elite .hp-bar i {
+  background: #b996d1;
+}
+.damage.incoming {
+  color: #ffb1a4;
+}
+#damage-screen {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, #9d202290);
+}
+#dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: 195px;
+  transform: translateX(-50%);
+  width: min(470px, 90vw);
+  padding: 25px 29px;
+  background: linear-gradient(130deg, #193039f7, #0d2029f7);
+  border: 1px solid #d6bd7955;
+  border-top: 2px solid #c4aa6d;
+  box-shadow: 0 20px 70px #0007;
+  border-radius: 4px;
+}
+#dialogue h3 {
+  font-size: 23px;
+  margin: 12px 0;
+}
+#dialogue p {
+  color: #c0cfcc;
+  font-size: 13px;
+  line-height: 1.8;
+}
+#dialogue button {
+  border: 1px solid #b9a06b;
+  background: #253e44;
+  color: #e3d7b5;
+  padding: 11px 17px;
+  border-radius: 3px;
+}
+#death {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #111c2988;
+  pointer-events: none;
+  text-align: center;
+}
+#death > div {
+  padding: 30px;
+  background: #0d1d29d9;
+  border: 1px solid #bfab7955;
+}
+#death h2 {
+  font:
+    30px Georgia,
+    serif;
+}
+#death p {
+  color: #c3cecc;
+}
+#death small {
+  color: #8fa8a7;
+}
+@media (max-width: 1100px) and (pointer: fine) {
+  #hotbar {
+    left: auto;
+    right: 30px;
+    transform: none;
+  }
+  #hotbar button {
+    width: 66px;
+  }
+  footer span:first-child {
+    font-size: 8px;
+  }
+  footer i {
+    margin: 0 5px;
+  }
+}
+@media (max-width: 760px) {
+  #settings {
+    right: 18px;
+    top: 65px;
+  }
+  #settings label {
+    display: none;
+  }
+  .playing #location {
+    top: 106px;
+  }
+  .playing #location h2 {
+    font-size: 22px;
+  }
+  #player-hud {
+    bottom: 20px;
+  }
+  .mana,
+  .experience {
+    width: 140px;
+  }
+  #pouch {
+    font-size: 8px;
+  }
+  #dialogue {
+    bottom: 270px;
+    padding: 18px 21px;
+  }
+  #dialogue h3 {
+    font-size: 19px;
+  }
+  #dialogue p {
+    font-size: 12px;
+  }
+  #quest {
+    top: 169px;
+  }
+  #map-panel {
+    top: 165px;
+  }
+}
+@media (pointer: coarse) {
+  #hotbar {
+    display: grid;
+    grid-template-columns: repeat(3, 60px);
+    gap: 7px;
+    right: 20px;
+    bottom: 128px;
+  }
+  #hotbar button {
+    width: 60px;
+    height: 66px;
+  }
+  #hotbar button > span {
+    font-size: 26px;
+    margin-top: 10px;
+  }
+  #hotbar button b {
+    font-size: 8px;
+  }
+  #potion {
+    grid-column: 1;
+  }
+  #interact {
+    grid-column: 2 / 4;
+    width: 127px !important;
+  }
+  #player-hud {
+    bottom: 23px;
+  }
+  #joystick {
+    bottom: 135px;
+  }
+  #toast {
+    bottom: 320px;
+  }
+  #dialogue {
+    bottom: 300px;
+  }
+}
+@media (pointer: coarse) and (max-height: 550px) {
+  #hotbar {
+    display: flex;
+    bottom: 30px;
+    right: 20px;
+    gap: 5px;
+  }
+  #hotbar button {
+    width: 55px;
+    height: 63px;
+  }
+  #interact {
+    width: 55px !important;
+  }
+  #player-hud {
+    top: 85px;
+    bottom: auto;
+    left: 20px;
+  }
+  #joystick {
+    bottom: 30px;
+  }
+  #dialogue {
+    top: 90px;
+    bottom: auto;
+    max-height: 65vh;
+    overflow: auto;
+  }
+  #toast {
+    bottom: 115px;
+  }
+  #location {
+    display: none;
+  }
+}

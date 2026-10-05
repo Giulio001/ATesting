@@ -1,10 +1,10 @@
 import * as T from 'three';
-import { DUMMY, type CombatEvent } from '@aetheria/shared';
+import { type CombatEvent } from '@aetheria/shared';
 interface Effect {
   root: T.Group;
   age: number;
   duration: number;
-  kind: 'slash' | 'skill' | 'hit';
+  kind: 'slash' | 'aether' | 'skill' | 'hit' | 'guard';
 }
 export class VFXSystem {
   private effects: Effect[] = [];
@@ -14,7 +14,7 @@ export class VFXSystem {
     root.position.set(e.x, 0.06, e.z);
     root.rotation.y = e.yaw;
     this.scene.add(root);
-    if (e.kind === 'slash') {
+    if (e.kind !== 'skill') {
       const arc = new T.Mesh(
         new T.RingGeometry(0.8, 2.25, 48, 1, 0.2, Math.PI * 0.7),
         new T.MeshBasicMaterial({
@@ -50,9 +50,9 @@ export class VFXSystem {
       root.add(light);
     }
     this.effects.push({ root, age: 0, duration: e.kind === 'skill' ? 0.7 : 0.32, kind: e.kind });
-    if (e.hit) {
+    for (const hit of e.hits) {
       const sparks = new T.Group();
-      sparks.position.set(DUMMY.x, 1.2, DUMMY.z);
+      sparks.position.set(hit.x, 1.2, hit.z);
       this.scene.add(sparks);
       for (let i = 0; i < 12; i++) {
         const m = new T.Mesh(
@@ -70,16 +70,51 @@ export class VFXSystem {
       this.effects.push({ root: sparks, age: 0, duration: 0.45, kind: 'hit' });
     }
   }
+  guard(x: number, z: number) {
+    const root = new T.Group();
+    root.position.set(x, 1, z);
+    const sphere = new T.Mesh(
+      new T.SphereGeometry(1.15, 20, 12),
+      new T.MeshBasicMaterial({
+        color: 0x8bddff,
+        transparent: true,
+        opacity: 0.16,
+        wireframe: true,
+        depthWrite: false,
+      }),
+    );
+    root.add(sphere);
+    this.scene.add(root);
+    this.effects.push({ root, age: 0, duration: 2.5, kind: 'guard' });
+  }
+  damage(x: number, z: number) {
+    const root = new T.Group();
+    root.position.set(x, 0.05, z);
+    this.scene.add(root);
+    const ring = new T.Mesh(
+      new T.RingGeometry(0.5, 1.65, 48),
+      new T.MeshBasicMaterial({
+        color: 0xeb776d,
+        transparent: true,
+        opacity: 0.8,
+        side: T.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    root.add(ring);
+    this.effects.push({ root, age: 0, duration: 0.3, kind: 'slash' });
+  }
   update(dt: number) {
     for (let i = this.effects.length - 1; i >= 0; i--) {
       const e = this.effects[i];
       e.age += dt;
       const t = e.age / e.duration;
       if (e.kind === 'skill') e.root.scale.setScalar(0.5 + t * 3.5);
-      if (e.kind === 'slash') e.root.rotation.y += dt * 5;
+      if (e.kind !== 'skill') e.root.rotation.y += dt * 5;
       e.root.children.forEach((c) => {
         if (c instanceof T.Mesh) {
-          (c.material as T.MeshBasicMaterial).opacity = 1 - t;
+          (c.material as T.MeshBasicMaterial).opacity = (e.kind === 'guard' ? 0.16 : 1) * (1 - t);
           if (e.kind === 'hit') c.position.addScaledVector(c.userData.velocity, dt);
         }
         if (c instanceof T.PointLight) c.intensity = 8 * (1 - t);

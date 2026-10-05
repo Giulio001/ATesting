@@ -12,6 +12,7 @@
   },
   "scripts": {
     "dev": "concurrently -k -n server,client -c magenta,cyan \"npm run dev -w @aetheria/server\" \"npm run dev -w @aetheria/client\"",
+    "dev:remote": "concurrently -k -n server,client -c magenta,cyan \"npm run dev -w @aetheria/server\" \"npm run dev:lan -w @aetheria/client\"",
     "build": "npm run build -w @aetheria/server && npm run build -w @aetheria/client",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

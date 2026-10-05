@@ -10,13 +10,22 @@ export class Warrior {
   private leftArm = new T.Group();
   private rightLeg = new T.Group();
   private leftLeg = new T.Group();
+  private leftKnee = new T.Group();
+  private rightKnee = new T.Group();
   private cape!: T.Mesh;
   private animation?: AnimationController;
   private phase = 0;
   private attackTime = 0;
+  private guardTime = 0;
+  private sword?: T.Group;
+  private shield?: T.Group;
+  private bladeMat?: T.MeshStandardMaterial;
+  private equipmentKey = '';
   private kind: AttackKind = 'slash';
   private combo = 0;
   private disposed = false;
+  private hurtTime = 0;
+  private armor?: T.MeshStandardMaterial;
   constructor(assets: AssetLoader, local = false) {
     const imported = assets.instantiateWarrior();
     if (imported) {
@@ -44,6 +53,7 @@ export class Warrior {
       roughness: 0.35,
       flatShading: true,
     });
+    this.armor = armor;
     const gold = new T.MeshStandardMaterial({
       color: 0xc4a66a,
       metalness: 0.6,
@@ -77,15 +87,53 @@ export class Warrior {
       return m;
     };
     mesh(new T.CylinderGeometry(0.3, 0.24, 0.56, 6), armor, this.body, 0, 1.12);
+    const chest = mesh(new T.SphereGeometry(0.29, 12, 8), armor, this.body, 0, 1.22, 0.045);
+    chest.scale.set(1, 0.9, 0.72);
+    for (const sign of [-1, 1]) {
+      const trim = mesh(
+        new T.BoxGeometry(0.035, 0.4, 0.07),
+        gold,
+        this.body,
+        sign * 0.16,
+        1.21,
+        0.23,
+      );
+      trim.rotation.z = sign * 0.15;
+    }
+    for (let i = 0; i < 3; i++)
+      mesh(
+        new T.BoxGeometry(0.49 - i * 0.03, 0.05, 0.035),
+        gold,
+        this.body,
+        0,
+        1.03 + i * 0.09,
+        0.225,
+      );
     mesh(new T.BoxGeometry(0.54, 0.12, 0.36), gold, this.body, 0, 0.88);
     mesh(new T.ConeGeometry(0.36, 0.33, 6), cloth, this.body, 0, 0.7).rotation.z = Math.PI;
     mesh(new T.BoxGeometry(0.17, 0.22, 0.1), gold, this.body, 0, 1.2, 0.28).rotation.z =
       Math.PI / 4;
     mesh(new T.CylinderGeometry(0.22, 0.24, 0.4, 8), armor, this.body, 0, 1.63);
     mesh(new T.BoxGeometry(0.35, 0.065, 0.1), dark, this.body, 0, 1.67, 0.21);
+    const eyes = new T.MeshStandardMaterial({
+      color: 0xaadfe3,
+      emissive: 0x5dbfc9,
+      emissiveIntensity: 1.5,
+    });
+    for (const sign of [-1, 1])
+      mesh(new T.BoxGeometry(0.1, 0.027, 0.035), eyes, this.body, sign * 0.1, 1.672, 0.268);
     mesh(new T.BoxGeometry(0.04, 0.3, 0.08), gold, this.body, 0, 1.61, 0.26);
     mesh(new T.ConeGeometry(0.12, 0.35, 4), gold, this.body, 0, 1.92).scale.z = 0.4;
-    this.cape = mesh(new T.BoxGeometry(0.54, 0.85, 0.07), cloth, this.body, 0, 0.93, -0.29);
+    cloth.side = T.DoubleSide;
+    const capeGeometry = new T.PlaneGeometry(0.64, 0.94, 4, 6),
+      vertices = capeGeometry.getAttribute('position');
+    for (let i = 0; i < vertices.count; i++) {
+      const t = (0.47 - vertices.getY(i)) / 0.94;
+      vertices.setX(i, vertices.getX(i) * (0.72 + t * 0.35));
+      vertices.setZ(i, -Math.sin(t * Math.PI) * 0.14);
+    }
+    capeGeometry.computeVertexNormals();
+    this.cape = mesh(capeGeometry, cloth, this.body, 0, 1.01, -0.29);
     this.cape.rotation.x = 0.12;
     for (const [arm, sign] of [
       [this.leftArm, -1],
@@ -95,6 +143,8 @@ export class Warrior {
       this.body.add(arm);
       const shoulder = mesh(new T.SphereGeometry(0.22, 6, 4), gold, arm);
       shoulder.scale.set(1, 0.65, 1.1);
+      const ridge = mesh(new T.ConeGeometry(0.13, 0.21, 4), armor, arm, sign * 0.09, 0.11, -0.02);
+      ridge.rotation.z = -sign * 0.35;
       mesh(new T.CylinderGeometry(0.11, 0.12, 0.52, 6), armor, arm, 0, -0.25);
       mesh(new T.BoxGeometry(0.19, 0.15, 0.2), dark, arm, 0, -0.53);
     }
@@ -104,19 +154,28 @@ export class Warrior {
     ] as const) {
       leg.position.set(sign * 0.15, 0.78, 0);
       this.body.add(leg);
-      mesh(new T.CylinderGeometry(0.13, 0.105, 0.66, 6), armor, leg, 0, -0.33);
-      mesh(new T.BoxGeometry(0.23, 0.15, 0.38), dark, leg, 0, -0.67, 0.07);
+      mesh(new T.CapsuleGeometry(0.11, 0.2, 4, 8), armor, leg, 0, -0.19);
+      const knee = sign === -1 ? this.leftKnee : this.rightKnee;
+      knee.position.y = -0.36;
+      leg.add(knee);
+      mesh(new T.CylinderGeometry(0.115, 0.09, 0.3, 8), armor, knee, 0, -0.13);
+      mesh(new T.BoxGeometry(0.23, 0.15, 0.38), dark, knee, 0, -0.31, 0.07);
       mesh(new T.BoxGeometry(0.21, 0.09, 0.15), gold, leg, 0, -0.34, 0.1);
     }
     const sword = new T.Group();
+    this.sword = sword;
+    this.bladeMat = armor.clone();
     sword.position.set(0, -0.53, 0.12);
     sword.rotation.x = -0.25;
     this.rightArm.add(sword);
     mesh(new T.CylinderGeometry(0.035, 0.035, 0.25, 6), dark, sword, 0, 0);
     mesh(new T.BoxGeometry(0.36, 0.05, 0.13), gold, sword, 0, 0.14);
-    const blade = mesh(new T.ConeGeometry(0.1, 1.04, 4), armor, sword, 0, 0.65);
+    const blade = mesh(new T.ConeGeometry(0.1, 1.04, 4), this.bladeMat, sword, 0, 0.65);
     blade.scale.z = 0.45;
+    mesh(new T.BoxGeometry(0.025, 0.69, 0.055), eyes, sword, 0, 0.59, 0.035);
+    mesh(new T.SphereGeometry(0.06, 8, 8), gold, sword, 0, -0.13);
     const shield = new T.Group();
+    this.shield = shield;
     shield.position.set(-0.08, -0.24, 0.16);
     shield.rotation.y = -0.18;
     this.leftArm.add(shield);
@@ -129,6 +188,19 @@ export class Warrior {
     mesh(new T.BoxGeometry(0.06, 0.36, 0.1), gold, shield, 0, 0, 0.11);
     mesh(new T.BoxGeometry(0.24, 0.055, 0.1), gold, shield, 0, 0.03, 0.11);
   }
+  equipment(weapon: string, shield: string) {
+    const key = weapon + '|' + shield;
+    if (key === this.equipmentKey) return;
+    this.equipmentKey = key;
+    if (this.sword) this.sword.visible = !!weapon;
+    if (this.shield) this.shield.visible = !!shield;
+    if (this.bladeMat) {
+      this.bladeMat.color.setHex(
+        weapon.includes('steel') ? 0xc3dcec : weapon.includes('rough') ? 0x777b84 : 0x9fb2bf,
+      );
+      this.bladeMat.metalness = weapon.includes('steel') ? 0.85 : 0.55;
+    }
+  }
   attack(kind: AttackKind, yaw: number) {
     this.kind = kind;
     this.attackTime = ATTACKS[kind].duration;
@@ -136,18 +208,43 @@ export class Warrior {
     this.body.rotation.y = yaw;
     this.animation?.play(kind === 'skill' ? 'Skill01' : (`Attack0${this.combo + 1}` as 'Attack01'));
   }
-  update(dt: number, moving: boolean, running: boolean, yaw: number) {
+  hit() {
+    this.hurtTime = 0.3;
+    this.animation?.play('Hit');
+  }
+  guard() {
+    this.guardTime = 2.5;
+    this.animation?.play('Block');
+  }
+  update(dt: number, moving: boolean, running: boolean, yaw: number, dead = false) {
     if (this.disposed) return;
     const active = this.attackTime > 0;
     this.attackTime = Math.max(0, this.attackTime - dt);
-    this.phase += dt * (moving ? (running ? 11 : 7) : 2);
+    this.guardTime = Math.max(0, this.guardTime - dt);
+    running = moving;
+    this.phase += dt * (moving ? 11 : 2);
+    this.hurtTime = Math.max(0, this.hurtTime - dt);
+    if (this.armor) {
+      this.armor.emissive.setHex(this.hurtTime > 0 ? 0x6d3029 : 0x000000);
+      this.armor.emissiveIntensity = this.hurtTime > 0 ? 0.8 : 0;
+    }
+    this.body.rotation.z = T.MathUtils.lerp(
+      this.body.rotation.z,
+      dead ? Math.PI / 2 : 0,
+      1 - Math.exp(-dt * 8),
+    );
+    if (dead) {
+      this.animation?.play('Death');
+      this.animation?.update(dt);
+      return;
+    }
     if (!active) {
       const delta = Math.atan2(
         Math.sin(yaw - this.body.rotation.y),
         Math.cos(yaw - this.body.rotation.y),
       );
       this.body.rotation.y += delta * (1 - Math.exp(-dt * 18));
-      this.animation?.play(moving ? (running ? 'Run' : 'Walk') : 'Idle');
+      this.animation?.play(this.guardTime > 0 ? 'Block' : moving ? 'Run' : 'Idle');
     }
     if (this.animation) {
       this.animation.update(dt);
@@ -157,6 +254,8 @@ export class Warrior {
     const wave = Math.sin(this.phase) * stride;
     this.leftLeg.rotation.x = wave;
     this.rightLeg.rotation.x = -wave;
+    this.leftKnee.rotation.x = -Math.max(0, wave) * 0.7;
+    this.rightKnee.rotation.x = -Math.max(0, -wave) * 0.7;
     this.leftArm.rotation.x = -wave * 0.55;
     this.rightArm.rotation.x = wave * 0.55 - 0.1;
     this.rightArm.rotation.z = -0.12;
@@ -164,7 +263,18 @@ export class Warrior {
     this.body.position.y = moving
       ? Math.abs(Math.sin(this.phase)) * 0.045
       : Math.sin(this.phase) * 0.009;
+    if (this.guardTime > 0) this.leftArm.rotation.x = -1.3;
     this.cape.rotation.x = 0.12 + (running ? 0.24 : 0.06) + Math.sin(this.phase) * 0.04;
+    const capeVertices = this.cape.geometry.getAttribute('position');
+    for (let i = 0; i < capeVertices.count; i++) {
+      const t = (0.47 - capeVertices.getY(i)) / 0.94;
+      capeVertices.setZ(
+        i,
+        -Math.sin(t * Math.PI) * 0.14 +
+          Math.sin(this.phase * 1.2 + t * 4) * t * (running ? 0.07 : 0.025),
+      );
+    }
+    capeVertices.needsUpdate = true;
     if (active) {
       const t = 1 - this.attackTime / ATTACKS[this.kind].duration;
       if (this.kind === 'skill') {

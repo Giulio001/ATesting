@@ -8,6 +8,7 @@ export class FollowCamera {
     window.addEventListener(
       'wheel',
       (e) => {
+        if (e.target !== document.getElementById('game')) return;
         this.zoom = MathUtils.clamp(this.zoom + e.deltaY * 0.0007, 0.65, 1.45);
       },
       { passive: true },
@@ -18,7 +19,7 @@ export class FollowCamera {
     const aspectScale = this.camera.aspect < 0.85 ? 1.23 : 1;
     this.camera.position
       .copy(this.focus)
-      .add(new Vector3(10, 16, 18).multiplyScalar(this.zoom * aspectScale));
+      .add(new Vector3(8, 12.5, 14.4).multiplyScalar(this.zoom * aspectScale));
     this.camera.lookAt(this.focus.x, this.focus.y + 0.3, this.focus.z);
   }
   resize() {

@@ -7,7 +7,6 @@ import {
   hasLineOfSight,
   WORLD_BOUND,
   DT,
-  WALK_SPEED,
   RUN_SPEED,
 } from '@aetheria/shared';
 
@@ -24,6 +23,9 @@ test('input validation rejects malformed packets and normalizes diagonal movemen
   const diagonal = sanitizeInput({ seq: 1, x: 900, z: 900, run: false, yaw: 10 * Math.PI })!;
   assert.ok(Math.abs(Math.hypot(diagonal.x, diagonal.z) - 1) < 1e-8);
   assert.ok(Math.abs(diagonal.yaw) < 1e-8);
+  const analog = sanitizeInput({ seq: 2, x: 0.2, z: 0, run: false, yaw: 0 })!;
+  assert.equal(analog.x, 1);
+  assert.equal(analog.run, true);
 });
 
 test('sword requires distance and facing, while Ether wave has radial reach', () => {
@@ -32,10 +34,11 @@ test('sword requires distance and facing, while Ether wave has radial reach', ()
   assert.equal(inAttackRange(3, 1, Math.PI, 'slash'), false);
   assert.equal(inAttackRange(3, 0.8, 0, 'skill'), true);
   assert.equal(hasLineOfSight(-16, -6, -6, -6), false);
-  assert.equal(hasLineOfSight(0, 2, 3, -3), true);
+  assert.equal(hasLineOfSight(0, 2, 3, -3), false, 'Central fountain blocks attacks');
+  assert.equal(hasLineOfSight(-4, 2, -4, -3), true);
 });
 
-test('Rapier blocks houses and map edges, slides along walls, and respects walk/run speed', async () => {
+test('Rapier blocks houses and map edges, slides along walls, and always runs regardless of legacy run flag', async () => {
   await initializePhysics();
   const physics = new PhysicsWorld();
   try {
@@ -47,7 +50,7 @@ test('Rapier blocks houses and map edges, slides along walls, and respects walk/
       }
     };
     move(1, 0);
-    assert.ok(Math.abs(player.body.translation().x - WALK_SPEED) < 0.04);
+    assert.ok(Math.abs(player.body.translation().x - RUN_SPEED) < 0.04);
     physics.teleport(player, 0, 0.91, 4);
     move(1, 0, true);
     assert.ok(Math.abs(player.body.translation().x - RUN_SPEED) < 0.04);

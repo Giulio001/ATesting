@@ -24,6 +24,14 @@
       </div>
       <div id="connection"><i></i><span>Preparazione del mondo…</span></div>
     </header>
+    <div id="settings">
+      <label for="quality">GRAFICA</label
+      ><select id="quality">
+        <option value="auto">Automatica</option>
+        <option value="high">Alta · bagliori</option>
+        <option value="low">Leggera</option>
+      </select>
+    </div>
     <div id="location">
       <span class="eyebrow">LE TERRE DEL PRIMO GIURAMENTO</span>
       <h2>Lumengate</h2>
@@ -31,11 +39,13 @@
       <p>Il vuoto attende. La città resiste.</p>
     </div>
     <aside id="quest">
-      <span class="eyebrow">PROVA DI COMBATTIMENTO</span>
+      <span class="eyebrow">MISSIONE · LUMENGATE</span>
       <h3>Il primo giuramento</h3>
-      <p>Raggiungi il manichino nella piazza.<br />Metti alla prova la tua lama.</p>
-      <div><span id="objective">◇</span> <span id="quest-text">Colpisci il manichino</span></div>
-      <small id="asset-note">Warrior provvisorio · modello articolato</small>
+      <p id="quest-description">
+        Parla con Ser Aurel vicino alla fontana.<br />La porta sud ha bisogno di te.
+      </p>
+      <div><span id="objective">◇</span> <span id="quest-text">Parla con il custode · E</span></div>
+      <small id="asset-note">Ricompensa · 75 oro + 100 EXP</small>
     </aside>
     <aside id="map-panel">
       <canvas id="minimap" width="180" height="180" aria-label="Minimappa"></canvas
@@ -46,35 +56,132 @@
     <section id="player-hud">
       <div class="portrait">♜</div>
       <div>
-        <span class="eyebrow">GUARDIAN · LIVELLO 1</span><strong id="player-name">Viandante</strong>
+        <span class="eyebrow" id="player-level">GUARDIAN · LIVELLO 1</span
+        ><strong id="player-name">Viandante</strong>
         <div class="health"><span></span><small>100 / 100</small></div>
-        <p>Area sicura · addestramento</p>
+        <div class="mana"><span></span><small>100 / 100 ETHER</small></div>
+        <div class="stamina"><span></span></div>
+        <div class="experience"><span></span></div>
+        <p id="player-status">Lumengate · area sicura</p>
+        <div id="pouch"><span id="gold">◆ 0 oro</span><span id="xp">0 / 100 EXP</span></div>
       </div>
+    </section>
+    <nav id="utility-menu" aria-label="Menu del giocatore">
+      <button data-open="inventory" title="Zaino · I">
+        <i class="menu-sprite" style="--sprite-x: 0; --sprite-y: 0"></i
+        ><small>ZAINO · I</small></button
+      ><button data-open="skills" title="Abilità · K">
+        <img src="/assets/aetheria/ui/menu/spellbook.png" alt="" /><small
+          >ABILITÀ · K</small
+        ></button
+      ><button data-open="menu" title="Menu">
+        <img src="/assets/aetheria/ui/menu/more.png" alt="" /><small>MENU</small>
+      </button>
+    </nav>
+    <section id="chat-panel" aria-label="Chat">
+      <div class="chat-channels">
+        <button data-channel="GLOBAL" class="active">GLOBALE</button
+        ><button data-channel="GUILD">CLAN</button
+        ><button id="chat-expand" aria-label="Espandi chat">+</button>
+      </div>
+      <div id="chat-lines" aria-live="polite"></div>
+      <div id="chat-latest"></div>
+      <form id="chat-form">
+        <input
+          id="chat-input"
+          maxlength="220"
+          placeholder="Invio per scrivere…"
+          autocomplete="off"
+        /><button type="submit" aria-label="Invia messaggio">→</button>
+      </form>
     </section>
     <nav id="hotbar" aria-label="Azioni">
       <button id="attack" title="Attacco · click sinistro o Spazio">
-        <small>CLICK / SPAZIO</small><span>⚔</span><b>Fendente</b></button
-      ><button id="skill" title="Onda d’Ether · Q">
-        <small>Q</small><span>✧</span><b>Onda d’Ether</b><em id="cooldown"></em></button
-      ><button id="run" title="Corsa · Shift">
-        <small>SHIFT</small><span>»</span><b>Corsa</b>
+        <small>SPAZIO / 1</small
+        ><span><img src="/assets/aetheria/ui/items/96/sword_rough_iron_96.png" alt="" /></span
+        ><b>Fendente</b></button
+      ><button id="aether" title="Taglio d’Aether · Q / 2">
+        <small>Q / 2</small
+        ><span><img src="/assets/aetheria/ui/items/96/sword_aether_96.png" alt="" /></span
+        ><b>Taglio</b><em id="aether-cooldown"></em></button
+      ><button id="guard" title="Scudo d’Aether · R / 3">
+        <small>R / 3</small
+        ><span><img src="/assets/aetheria/ui/items/96/shield_aether_96.png" alt="" /></span
+        ><b>Guardia</b><em id="guard-cooldown"></em></button
+      ><button id="skill" title="Impulso Void · F / 4">
+        <small>F / 4</small
+        ><span><img src="/assets/aetheria/ui/items/96/aether_crystal_96.png" alt="" /></span
+        ><b>Impulso Void</b><em id="cooldown"></em>
+      </button>
+      <button id="potion" title="Pozione di cura · H">
+        <small>H</small
+        ><span><img src="/assets/aetheria/ui/items/96/potion_health_96.png" alt="" /></span
+        ><b id="potion-count">Cura · 3</b><em id="potion-cooldown"></em></button
+      ><button id="mana-potion" title="Pozione di mana · G">
+        <small>G</small
+        ><span><img src="/assets/aetheria/ui/items/96/potion_mana_96.png" alt="" /></span
+        ><b id="mana-potion-count">Mana · 2</b><em id="mana-potion-cooldown"></em></button
+      ><button id="interact" title="Interagisci · E">
+        <small>E</small><span>◇</span><b>Parla</b>
       </button>
     </nav>
     <footer>
       <span
-        ><kbd>W A S D</kbd> Muoviti <i>·</i> <kbd>SHIFT</kbd> Corri <i>·</i>
-        <kbd>CLICK</kbd> Attacca <i>·</i> <kbd>Q</kbd> Skill <i>·</i>
-        <kbd>ROTELLINA</kbd> Zoom</span
+        ><kbd>W A S D</kbd> Corsa · <kbd>SPAZIO</kbd> Attacco · <kbd>Q R F</kbd> Abilità ·
+        <kbd>H G</kbd> Pozioni · <kbd>E</kbd> Interagisci · <kbd>I</kbd> Zaino</span
       ><span id="fps">— FPS</span>
     </footer>
+    <div
+      id="rpg-overlay"
+      class="hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="panel-title"
+    >
+      <section id="rpg-window">
+        <div class="rpg-heading">
+          <div>
+            <small>AETHERIA</small>
+            <h2 id="panel-title">MENU</h2>
+          </div>
+          <div>
+            <button id="panel-back">‹ Menu</button
+            ><button id="panel-close" aria-label="Chiudi pannello">×</button>
+          </div>
+        </div>
+        <div id="panel-content"></div>
+        <div class="rpg-footnote">ESC per chiudere · I zaino · K abilità · J missioni · C clan</div>
+      </section>
+    </div>
     <div id="joystick" aria-label="Joystick di movimento"><div></div></div>
+    <div id="damage-screen"></div>
+    <div
+      id="dialogue"
+      class="hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dialogue-title"
+    >
+      <span class="eyebrow">IL GIURAMENTO DEL GUARDIAN</span>
+      <h3 id="dialogue-title"></h3>
+      <p id="dialogue-text"></p>
+      <button id="dialogue-close">Ho capito →</button>
+    </div>
+    <div id="death" class="hidden">
+      <div>
+        <span class="eyebrow">LA LUCE TI RICHIAMA</span>
+        <h2>Il giuramento resiste.</h2>
+        <p>Ritorno a Lumengate tra <strong id="death-count">4</strong> secondi.</p>
+        <small>Il custode può curarti e rifornire le pozioni.</small>
+      </div>
+    </div>
     <div id="entry">
       <div class="entry-card">
         <span class="eyebrow">UN NUOVO ORIZZONTE</span>
         <h2>Varca la soglia.</h2>
         <p>
-          La prima pietra di Aetheria in tre dimensioni.<br />Una piazza, una lama. Il resto inizia
-          da qui.
+          Proteggi la porta sud dalle creature del Vuoto.<br />Una città, un giuramento. La tua
+          prima avventura.
         </p>
         <label for="name">NOME DEL GUARDIAN</label
         ><input id="name" maxlength="18" placeholder="Viandante" autocomplete="off" /><button

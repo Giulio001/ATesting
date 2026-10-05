@@ -1,3 +1,5 @@
+import '@fontsource/press-start-2p/latin-400.css';
+import '@fontsource/vt323/latin-400.css';
 import './style.css';
 import { Game } from './engine/Game';
 try {
@@ -12,3 +14,4 @@ try {
   document.getElementById('error')!.textContent =
     'WebGL2 non disponibile. Prova un browser aggiornato con accelerazione hardware attiva.';
 }
+import './ui/aetheria.css';

@@ -10,8 +10,10 @@
   },
   "dependencies": {
     "@aetheria/shared": "*",
-    "three": "0.186.1",
-    "colyseus.js": "0.16.22"
+    "@fontsource/press-start-2p": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0",
+    "colyseus.js": "0.16.22",
+    "three": "0.186.1"
   },
   "devDependencies": {
     "vite": "^8.0.0"
