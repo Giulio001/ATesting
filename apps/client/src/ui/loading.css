@@ -1,0 +1,140 @@
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 38%, #243e4b, #101b27 55%, #090f18);
+  color: #e8dfc8;
+  font-family: Georgia, serif;
+  text-align: center;
+  overflow: auto;
+}
+#loading-screen[hidden],
+#loading-retry[hidden] {
+  display: none;
+}
+.loading-card {
+  width: min(100%, 420px);
+}
+.loading-brand {
+  font-size: 12px;
+  letter-spacing: 0.35em;
+  color: #c4aa73;
+}
+#loading-title {
+  font-size: clamp(24px, 5vw, 34px);
+  font-weight: normal;
+  margin: 20px 0 12px;
+}
+#loading-status {
+  min-height: 2.5em;
+  line-height: 1.5;
+  color: #acbcc4;
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+}
+#loading-progress {
+  display: block;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border: 0;
+  border-radius: 4px;
+  background: #2c3d48;
+  accent-color: #92dfcc;
+  overflow: hidden;
+}
+#loading-progress::-webkit-progress-bar {
+  background: #2c3d48;
+}
+#loading-progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #599c9b, #b4ecce);
+  transition: width 0.2s;
+}
+#loading-progress::-moz-progress-bar {
+  background: #92dfcc;
+}
+.loading-hint {
+  color: #b5a889;
+  font-size: 14px;
+  margin-top: 24px;
+}
+.loading-emblem {
+  width: 70px;
+  height: 70px;
+  border: 1px solid #b99b6166;
+  border-radius: 50%;
+  margin: 0 auto 32px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.loading-emblem::before {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border: 1px solid transparent;
+  border-top-color: #98decd;
+  border-bottom-color: #c5aa72;
+  border-radius: 50%;
+  animation: loading-orbit 3s linear infinite;
+}
+.loading-emblem span {
+  width: 25px;
+  height: 25px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, #d1edcf, #71bcb7 50%, #334e68);
+  box-shadow: 0 0 24px #91e0cd44;
+}
+#loading-retry {
+  margin-top: 24px;
+  padding: 12px 24px;
+  border: 1px solid #c5aa72;
+  background: #263a46;
+  color: #f2dfb3;
+  border-radius: 4px;
+  font:
+    15px system-ui,
+    sans-serif;
+  cursor: pointer;
+  min-height: 44px;
+}
+#loading-retry:focus-visible {
+  outline: 2px solid #92dfcc;
+  outline-offset: 4px;
+}
+.loading-error .loading-emblem::before {
+  animation: none;
+  border-color: #b77b66;
+}
+.loading-error #loading-status {
+  color: #e3b7a4;
+}
+@keyframes loading-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-emblem::before {
+    animation: none;
+  }
+  #loading-progress::-webkit-progress-value {
+    transition: none;
+  }
+}
+@media (max-height: 480px) {
+  .loading-emblem {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 20px;
+  }
+  .loading-hint {
+    display: none;
+  }
+}

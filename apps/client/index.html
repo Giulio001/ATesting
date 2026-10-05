@@ -9,8 +9,33 @@
     <meta name="theme-color" content="#111a23" />
     <meta name="description" content="Aetheria 3D — un esperimento giocabile a Lumengate." />
     <title>Aetheria 3D · Lumengate</title>
+    <link rel="stylesheet" href="/src/ui/loading.css" />
   </head>
   <body>
+    <section
+      id="loading-screen"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="loading-title"
+      aria-busy="true"
+      tabindex="-1"
+    >
+      <div class="loading-card">
+        <div class="loading-emblem" aria-hidden="true"><span></span></div>
+        <span class="loading-brand">AETHERIA</span>
+        <h2 id="loading-title">Lumengate prende forma</h2>
+        <p id="loading-status" role="status" aria-live="polite">Preparazione del viaggio…</p>
+        <progress
+          id="loading-progress"
+          max="100"
+          value="0"
+          aria-label="Avanzamento del caricamento"
+        ></progress>
+        <p class="loading-hint">La città resiste. Il tuo giuramento sta per cominciare.</p>
+        <button id="loading-retry" type="button" hidden>Riprova</button>
+        <noscript>Attiva JavaScript nel browser per entrare a Lumengate.</noscript>
+      </div>
+    </section>
     <canvas id="game" aria-label="Lumengate 3D"></canvas>
     <div id="vignette"></div>
     <header>

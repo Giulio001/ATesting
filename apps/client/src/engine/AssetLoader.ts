@@ -4,8 +4,14 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 export class AssetLoader {
   private loader = new GLTFLoader();
   private warrior?: { root: Group; clips: AnimationClip[] };
-  async loadWarrior(url: string) {
-    const gltf = await this.loader.loadAsync(url);
+  async loadWarrior(url: string, onProgress?: (event: ProgressEvent) => void) {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const gltf = await Promise.race([
+      this.loader.loadAsync(url, onProgress),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Download del modello scaduto.')), 20000);
+      }),
+    ]).finally(() => clearTimeout(timeout));
     const root = gltf.scene,
       box = new Box3().setFromObject(root),
       size = box.getSize(new Vector3());

@@ -15,6 +15,7 @@ import { mobileGraphics } from './Performance';
 import { Enemy } from '../combat/Enemy';
 import { RPGPanels } from '../ui/RPGPanels';
 import { nearbyNpc } from '@aetheria/shared';
+import type { LoadingScreen } from '../ui/LoadingScreen';
 
 export class Game {
   private world = new World();
@@ -46,7 +47,8 @@ export class Game {
   private graphics: Graphics;
   private enemies = new Map<string, Enemy>();
   private alive = true;
-  constructor() {
+  private initialized = false;
+  constructor(private loading: LoadingScreen) {
     this.renderer = new T.WebGLRenderer({
       canvas: document.getElementById('game') as HTMLCanvasElement,
       antialias: !mobileGraphics(),
@@ -172,17 +174,34 @@ export class Game {
     });
   }
   async initialize() {
-    await initializePhysics();
+    this.loading.stage('Preparazione della fisica…', 35);
+    await this.loading.paint();
+    await this.prepare(initializePhysics());
     this.physics = new PhysicsWorld();
+    this.loading.stage('Caricamento delle risorse…', 55);
+    await this.loading.paint();
     const manifestUrl = `${import.meta.env.BASE_URL}assets/manifest.json`;
-    const manifest = (await fetch(manifestUrl).then((r) => {
-      if (!r.ok) throw new Error('Manifest degli asset non disponibile.');
-      return r.json();
+    const controller = new AbortController();
+    const manifest = (await this.prepare(
+      fetch(manifestUrl, { signal: controller.signal }).then((r) => {
+        if (!r.ok) throw new Error('Manifest degli asset non disponibile.');
+        return r.json();
+      }),
+    ).catch((error) => {
+      controller.abort();
+      throw error;
     })) as { warrior: string | null };
     const model = (import.meta.env.VITE_WARRIOR_URL as string | undefined) || manifest.warrior;
     if (model) {
       try {
-        await this.assets.loadWarrior(model);
+        this.loading.stage('Caricamento del personaggio…', 65);
+        await this.assets.loadWarrior(model, (event) => {
+          if (event.lengthComputable && event.total > 0)
+            this.loading.stage(
+              'Caricamento del personaggio…',
+              65 + Math.min(1, event.loaded / event.total) * 10,
+            );
+        });
       } catch (error) {
         console.warn('GLB non disponibile, uso il Warrior provvisorio.', error);
         this.hud.toast('GLB non disponibile: uso il Warrior provvisorio.');
@@ -195,17 +214,43 @@ export class Game {
       if (cls && ['GUARDIAN', 'AETHER_BLADE', 'VOID_KNIGHT'].includes(cls))
         (document.getElementById('hero-class') as HTMLSelectElement).value = cls;
     } catch {}
+    this.loading.stage('Preparazione dell’interfaccia e della scena…', 85);
+    await this.loading.paint();
+    await this.prepare(
+      Promise.allSettled(Array.from(document.images, (image) => image.decode())),
+      8000,
+    ).catch(() => {});
+    await this.prepare(this.renderer.compileAsync(this.world.scene, this.camera.camera));
+    this.initialized = true;
     this.hud.ready();
+    this.loading.stage('Lumengate è pronta', 100);
+    await this.loading.paint();
+    this.loading.hide();
+  }
+  private async prepare<T>(work: Promise<T>, milliseconds = 20000) {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error('Il caricamento ha impiegato troppo tempo.')),
+          milliseconds,
+        );
+      }),
+    ]).finally(() => clearTimeout(timeout));
   }
   private async join() {
-    if (!this.physics || this.joining || this.connected) return;
+    if (!this.initialized || this.joining || this.connected) return;
     this.joining = true;
     const button = document.getElementById('enter') as HTMLButtonElement;
     button.disabled = true;
     button.textContent = 'Apertura del varco…';
     document.getElementById('error')!.textContent = '';
     this.audio.unlock();
+    this.loading.show('Apertura del varco');
+    this.loading.stage('Connessione a Lumengate…', 15);
     try {
+      await this.loading.paint();
       this.cleanupPlayers();
       this.pending = [];
       this.seq = 0;
@@ -215,28 +260,43 @@ export class Game {
       await this.network.connect(
         name,
         (document.getElementById('hero-class') as HTMLSelectElement).value,
+        () => this.loading.stage('Sincronizzazione del personaggio…', 45),
       );
+      this.loading.stage('Preparazione dell’ingresso in città…', 70);
       const p = this.network.room!.state.players.get(this.network.id)!;
       this.localPhysics = this.physics.createPlayer(p.x, p.z);
       this.position.set(p.x, p.y - PLAYER_HEIGHT, p.z);
       this.connected = true;
-      this.alive = true;
+      this.alive = p.hp > 0;
       this.input.setMenuOpen(false);
       this.accumulator = 0;
-      this.input.setEnabled(true);
-      this.hud.entered(p.name);
+      this.input.setEnabled(false);
       try {
         localStorage.setItem('aetheria3d.name', p.name);
       } catch {}
       this.camera.update(this.position, 1, true);
+      await this.loading.paint();
+      this.loading.stage('Preparazione degli eroi e delle creature…', 85);
+      await this.prepare(this.renderer.compileAsync(this.world.scene, this.camera.camera));
+      this.loading.stage('Il varco è aperto', 100);
+      await this.loading.paint();
+      if (!this.connected) throw new Error('Connessione interrotta durante il caricamento.');
+      this.hud.entered(p.name);
+      this.input.setEnabled(this.alive);
+      this.loading.hide();
     } catch (error) {
       console.error(error);
+      this.connected = false;
+      this.input.setEnabled(false);
+      this.cleanupPlayers();
+      void this.network.room?.leave();
       const detail = error instanceof Error ? error.message : '';
-      this.hud.error(
-        detail.includes('già connesso')
+      const message =
+        detail.includes('già connesso') || detail.includes('caricamento')
           ? detail
-          : 'Server non raggiungibile. Avvia client e server con npm run dev:remote, poi riprova.',
-      );
+          : 'Impossibile entrare a Lumengate. Controlla la connessione e riprova.';
+      this.hud.error(message);
+      this.loading.fail(message, () => this.loading.hide(), 'Torna all’ingresso');
     } finally {
       this.joining = false;
     }
@@ -263,7 +323,7 @@ export class Game {
     if (lifeChanged) {
       this.alive = p.hp > 0;
       this.pending = [];
-      this.input.setEnabled(this.alive);
+      this.input.setEnabled(this.alive && !this.joining);
       if (!this.alive) {
         this.hud.closeDialogue();
         this.panels.close();
@@ -286,6 +346,8 @@ export class Game {
     if (e.hit) this.audio.hit(e.kind === 'skill');
   }
   private frame(now: number) {
+    // The opaque loading screen needs no continuous world rendering during boot.
+    if (!this.initialized && !this.connected) return;
     const elapsed = (now - (this.previous || now)) / 1000,
       dt = Math.min(0.1, elapsed);
     this.previous = now;

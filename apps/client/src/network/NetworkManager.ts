@@ -29,7 +29,7 @@ export class NetworkManager {
   get id() {
     return this.room?.sessionId ?? '';
   }
-  async connect(name: string, heroClass = 'GUARDIAN') {
+  async connect(name: string, heroClass = 'GUARDIAN', onJoined?: () => void) {
     const override = import.meta.env.VITE_SERVER_URL as string | undefined;
     const endpoint =
       override || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/multiplayer`;
@@ -38,7 +38,28 @@ export class NetworkManager {
     try {
       token = localStorage.getItem('aetheria3d.profile');
     } catch {}
-    this.room = await client.joinOrCreate<WorldState>('lumengate', { name, token, heroClass });
+    let expired = false;
+    let connectionTimeout: ReturnType<typeof setTimeout> | undefined;
+    const request = client
+      .joinOrCreate<WorldState>('lumengate', { name, token, heroClass })
+      .then((room) => {
+        if (expired) {
+          void room.leave();
+          throw new Error('Connessione scaduta.');
+        }
+        return room;
+      });
+    this.room = await Promise.race([
+      request,
+      new Promise<never>((_, reject) => {
+        connectionTimeout = setTimeout(() => {
+          expired = true;
+          reject(new Error('Il server non ha risposto in tempo.'));
+        }, 20000);
+      }),
+    ]).finally(() => clearTimeout(connectionTimeout));
+    const room = this.room;
+    onJoined?.();
     this.room.onMessage('profile', (e: { token: string }) => {
       try {
         localStorage.setItem('aetheria3d.profile', e.token);
@@ -55,9 +76,15 @@ export class NetworkManager {
     this.room.onMessage('damage', this.onDamage);
     this.room.onMessage('reward', this.onReward);
     this.room.onMessage('dialogue', this.onDialogue);
-    this.room.onLeave(() => this.onDisconnect());
-    this.room.onError(() => this.onDisconnect());
-    this.room.onStateChange(() => this.onState());
+    room.onLeave(() => {
+      if (this.room === room) this.onDisconnect();
+    });
+    room.onError(() => {
+      if (this.room === room) this.onDisconnect();
+    });
+    room.onStateChange(() => {
+      if (this.room === room) this.onState();
+    });
     // The SDK installs the schema decoder before delivering state callbacks.
     getStateCallbacks(this.room);
     await new Promise<void>((resolve, reject) => {
@@ -66,6 +93,7 @@ export class NetworkManager {
         return;
       }
       const timeout = setTimeout(() => {
+        this.room!.onStateChange.remove(listener);
         this.room?.leave();
         reject(new Error('Il server non ha inviato lo stato iniziale.'));
       }, 8000);

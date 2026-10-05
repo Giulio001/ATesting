@@ -85,6 +85,8 @@ La mappa è una prima ricostruzione procedurale 3D. Il capitolo riprende le cinq
 
 Lumengate ha una piazza con mosaici e intarsi in ottone, anelli animati sul cristallo della fontana, fioriere alle finestre, stemmi cittadini e un mercato con tendone a righe. Gli ornamenti ripetuti e la vegetazione usano geometrie istanziate; i nuovi dettagli non aggiungono luci dinamiche.
 
+Una schermata di caricamento mostra la preparazione del mondo e, dopo aver premuto Entra, la connessione e la sincronizzazione del personaggio. I controlli si attivano quando la scena è pronta; in caso di errore puoi riprovare o tornare alla selezione del personaggio.
+
 ### Zaino, equipaggiamento e negozio
 
 Lo zaino riprende la capacità originale: **72 oggetti, tre pagine da 24**, con gli otto slot **testa, collo, corpo, arma, scudo, anello, piedi, compagno**. Seleziona un oggetto per vedere i bonus; doppio clic o **Equipaggia** per indossarlo. La × sullo slot lo rimuove. Bonus di vita, attacco e difesa vengono applicati dal server. Rimuovere l'arma impedisce di attaccare.
