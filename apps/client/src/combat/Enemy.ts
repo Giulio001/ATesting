@@ -10,7 +10,7 @@ export class Enemy {
   private flash = 0;
   private materials: T.MeshStandardMaterial[] = [];
   private scale = 1;
-  constructor(private type: string) {
+  constructor(private type: string, low = false) {
     const champion = type === 'champion',
       slime = type === 'slime',
       spitter = type === 'spitter';
@@ -40,7 +40,13 @@ export class Enemy {
       return o;
     };
     if (slime) {
-      const jelly = mesh(new T.SphereGeometry(0.7, 20, 12), armor, this.body, 0, 0.55);
+      const jelly = mesh(
+        new T.SphereGeometry(0.7, low ? 12 : 20, low ? 8 : 12),
+        armor,
+        this.body,
+        0,
+        0.55,
+      );
       jelly.scale.set(1, 0.75, 1);
       mesh(new T.IcosahedronGeometry(0.18, 1), ether, this.body, 0, 0.55, 0.2);
       for (const sign of [-1, 1])
@@ -87,6 +93,7 @@ export class Enemy {
         const crown = mesh(new T.TorusGeometry(0.35, 0.045, 6, 12), ether, this.body, 0, 2.05);
         crown.rotation.x = Math.PI / 2;
         const light = new T.PointLight(0xbf4c9e, 3, 5);
+        light.visible = !low;
         light.position.y = 1.5;
         this.body.add(light);
       }

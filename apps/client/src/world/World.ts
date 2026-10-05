@@ -1,6 +1,7 @@
 import * as T from 'three';
 import { OBSTACLES, DUMMY, CUSTODIAN, NPCS, FRONTIER } from '@aetheria/shared';
 import { paintedTexture } from './Art';
+import { decorateHouse, decoratePlaza } from './LumengateDecor';
 const material = (color: number, metalness = 0, roughness = 0.85) =>
   new T.MeshStandardMaterial({ color, metalness, roughness, flatShading: true });
 const stone = material(0x59656a),
@@ -12,6 +13,11 @@ const glow = new T.MeshStandardMaterial({
   color: 0x99f2dc,
   emissive: 0x54cbb6,
   emissiveIntensity: 2,
+});
+const windowGlow = new T.MeshStandardMaterial({
+  color: 0xeec480,
+  emissive: 0xdca66a,
+  emissiveIntensity: 0.65,
 });
 export class World {
   readonly scene = new T.Scene();
@@ -26,6 +32,7 @@ export class World {
   private flameLights: T.PointLight[] = [];
   private sun!: T.DirectionalLight;
   private frontierCrystal = new T.Group();
+  private fountainHalo = new T.Group();
   constructor() {
     this.scene.background = new T.Color(0x536d82);
     this.scene.fog = new T.FogExp2(0x536d82, 0.017);
@@ -74,10 +81,19 @@ export class World {
         transform.updateMatrix();
         paving.setMatrixAt(idx, transform.matrix);
         const noise = this.noise(x + 22, z + 33);
-        paving.setColorAt(idx++, new T.Color().setHSL(0.53, 0.08, 0.25 + noise * 0.12));
+        const plaza = Math.hypot(x, z) < 8;
+        paving.setColorAt(
+          idx++,
+          new T.Color().setHSL(
+            plaza ? 0.12 : 0.53,
+            plaza ? 0.12 : 0.08,
+            (plaza ? 0.37 : 0.25) + noise * 0.1,
+          ),
+        );
       }
     paving.receiveShadow = true;
     this.scene.add(paving);
+    decoratePlaza(this.scene);
     const ring = this.mesh(new T.RingGeometry(7.7, 7.85, 96), gold, this.scene, 0, 0.012, 0);
     ring.rotation.x = -Math.PI / 2;
     for (let a = 0; a < 8; a++) {
@@ -97,6 +113,7 @@ export class World {
       this.scene.add(g);
       if (o.kind === 'house') {
         this.house(g, o.hx, o.hz, o.height);
+        decorateHouse(g, o.hx, o.hz, o.height);
         this.addOccluder(g);
       }
       if (o.kind === 'wall') {
@@ -139,6 +156,8 @@ export class World {
       [4, -15],
     ])
       this.lantern(x, z);
+    const plants = new T.InstancedMesh(new T.ConeGeometry(0.17, 0.65, 3), material(0x526b62), 120);
+    let plantCount = 0;
     for (let i = 0; i < 120; i++) {
       const a = i * 2.399,
         r = 15.5 + this.noise(i, 31) * 8.2;
@@ -146,16 +165,16 @@ export class World {
         z = Math.sin(a) * r;
       if (OBSTACLES.some((o) => Math.abs(x - o.x) < o.hx + 1 && Math.abs(z - o.z) < o.hz + 1))
         continue;
-      const plant = this.mesh(
-        new T.ConeGeometry(0.17, 0.65, 3),
-        material(i % 4 === 0 ? 0x859c92 : 0x526b62),
-        this.scene,
-        x,
-        0.26,
-        z,
-      );
-      plant.rotation.y = a;
+      transform.position.set(x, 0.26, z);
+      transform.rotation.y = a;
+      transform.updateMatrix();
+      plants.setMatrixAt(plantCount, transform.matrix);
+      plants.setColorAt(plantCount++, new T.Color(i % 4 === 0 ? 0x859c92 : 0x526b62));
     }
+    plants.count = plantCount;
+    plants.castShadow = true;
+    plants.receiveShadow = true;
+    this.scene.add(plants);
     this.makeDummy();
     this.details();
     this.makeFrontier();
@@ -329,18 +348,7 @@ export class World {
     this.mesh(new T.BoxGeometry(0.35, h * 0.27, 0.4), dark, g, hx * 0.5, h * 0.95, 0);
     for (let x = -hx + 0.2; x < hx; x += 1.6) {
       this.mesh(new T.BoxGeometry(0.7, 1.1, 0.08), dark, g, x, h * 0.37, hz + 0.05);
-      this.mesh(
-        new T.BoxGeometry(0.46, 0.8, 0.09),
-        new T.MeshStandardMaterial({
-          color: 0xeec480,
-          emissive: 0xdca66a,
-          emissiveIntensity: 0.65,
-        }),
-        g,
-        x,
-        h * 0.37,
-        hz + 0.1,
-      );
+      this.mesh(new T.BoxGeometry(0.46, 0.8, 0.09), windowGlow, g, x, h * 0.37, hz + 0.1);
       this.mesh(new T.BoxGeometry(0.045, 1.05, 0.1), gold, g, x, h * 0.37, hz + 0.17);
     }
     this.mesh(new T.BoxGeometry(1.1, 2.1, 0.08), wood, g, 0, 1.05, hz + 0.13);
@@ -408,6 +416,13 @@ export class World {
       0,
       1.4,
     );
+    this.fountainHalo.position.y = 1.4;
+    g.add(this.fountainHalo);
+    for (const tilt of [-0.55, 0.55]) {
+      const halo = this.mesh(new T.TorusGeometry(0.7, 0.018, 4, 32), glow, this.fountainHalo);
+      halo.rotation.x = Math.PI / 2 + tilt;
+      halo.castShadow = false;
+    }
     for (let i = 0; i < 4; i++) {
       const a = (i * Math.PI) / 2;
       const stream = this.mesh(
@@ -468,6 +483,18 @@ export class World {
     }
     const sigil = this.mesh(new T.OctahedronGeometry(0.4), gold, arch, 0, 5.4, 10);
     sigil.scale.z = 0.2;
+    const crest = this.mesh(new T.RingGeometry(0.48, 0.55, 24), gold, arch, 0, 5.4, 10.48);
+    crest.castShadow = false;
+    const rays = new T.InstancedMesh(new T.BoxGeometry(0.045, 0.14, 0.035), gold, 8);
+    const crestPose = new T.Object3D();
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      crestPose.position.set(Math.sin(angle) * 0.66, 5.4 + Math.cos(angle) * 0.66, 10.48);
+      crestPose.rotation.z = -angle;
+      crestPose.updateMatrix();
+      rays.setMatrixAt(i, crestPose.matrix);
+    }
+    arch.add(rays);
     this.addOccluder(arch);
     const dirt = this.mesh(
       new T.CircleGeometry(7, 64),
@@ -583,6 +610,31 @@ export class World {
       this.mesh(new T.CylinderGeometry(0.05, 0.05, 2.3, 6), wood, stall, x, 1.15, -0.3);
     const tent = this.mesh(new T.BoxGeometry(2.6, 0.1, 1.9), material(0x567984), stall, 0, 2.25);
     tent.rotation.x = -0.16;
+    const fabric = material(0xd7c6a0);
+    const stripes = new T.InstancedMesh(new T.BoxGeometry(0.22, 0.012, 1.91), fabric, 6);
+    const stripePose = new T.Object3D();
+    for (let i = 0; i < 6; i++) {
+      stripePose.position.set(-1.1 + i * 0.44, 0.056, 0);
+      stripePose.updateMatrix();
+      stripes.setMatrixAt(i, stripePose.matrix);
+    }
+    tent.add(stripes);
+    const valance = this.mesh(new T.BoxGeometry(2.6, 0.22, 0.04), fabric, tent, 0, -0.08, 0.94);
+    valance.castShadow = false;
+    const goods = new T.InstancedMesh(new T.IcosahedronGeometry(0.09, 0), material(0xb87d59), 15);
+    const goodsPose = new T.Object3D();
+    for (let i = 0; i < 15; i++) {
+      const angle = ((i % 5) / 5) * Math.PI * 2;
+      goodsPose.position.set(
+        -0.7 + Math.floor(i / 5) * 0.7 + Math.sin(angle) * 0.1,
+        1.16,
+        0.2 + Math.cos(angle) * 0.1,
+      );
+      goodsPose.updateMatrix();
+      goods.setMatrixAt(i, goodsPose.matrix);
+      goods.setColorAt(i, new T.Color(i % 3 === 0 ? 0xd9ad69 : i % 3 === 1 ? 0x87a57a : 0xc48072));
+    }
+    stall.add(goods);
     for (const x of [-0.7, 0, 0.7])
       this.mesh(
         new T.CylinderGeometry(0.18, 0.16, 0.26, 8),
@@ -704,7 +756,22 @@ export class World {
     );
     ring.rotation.x = -Math.PI / 2;
   }
+  setQuality(low: boolean) {
+    this.scene.traverse((object) => {
+      if (object instanceof T.PointLight) object.visible = !low;
+      if (object instanceof T.Mesh) {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) {
+          if (material instanceof T.MeshStandardMaterial && material.map) {
+            material.map.anisotropy = low ? 1 : 4;
+            material.map.needsUpdate = true;
+          }
+        }
+      }
+    });
+  }
   update(time: number, hp: number) {
+    this.fountainHalo.rotation.y = time * 0.3;
     this.frontierCrystal.rotation.y = time * 0.55;
     this.frontierCrystal.position.y = 2.1 + Math.sin(time * 2) * 0.12;
     this.portal.rotation.y = time * 0.28;

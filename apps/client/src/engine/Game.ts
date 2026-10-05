@@ -11,6 +11,7 @@ import { FollowCamera } from './Camera';
 import { AssetLoader } from './AssetLoader';
 import { AudioManager } from './AudioManager';
 import { Graphics } from './Graphics';
+import { mobileGraphics } from './Performance';
 import { Enemy } from '../combat/Enemy';
 import { RPGPanels } from '../ui/RPGPanels';
 import { nearbyNpc } from '@aetheria/shared';
@@ -24,7 +25,10 @@ export class Game {
   private assets = new AssetLoader();
   private hud = new HUD();
   private audio = new AudioManager();
-  private vfx = new VFXSystem(this.world.scene);
+  private vfx = new VFXSystem(
+    this.world.scene,
+    (id, base, tip) => this.warriors.get(id)?.weaponPose(base, tip) ?? false,
+  );
   private network = new NetworkManager();
   private input: InputController;
   private panels = new RPGPanels(() => this.network.room?.state?.players?.get(this.network.id));
@@ -45,16 +49,16 @@ export class Game {
   constructor() {
     this.renderer = new T.WebGLRenderer({
       canvas: document.getElementById('game') as HTMLCanvasElement,
-      antialias: true,
+      antialias: !mobileGraphics(),
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
-    this.renderer.setSize(innerWidth, innerHeight);
-    this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = T.PCFShadowMap;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
-    this.graphics = new Graphics(this.renderer, this.world.scene, this.camera.camera);
+    this.graphics = new Graphics(this.renderer, this.world.scene, this.camera.camera, (low) => {
+      this.world.setQuality(low);
+      this.vfx.setQuality(low);
+    });
     this.input = new InputController(
       this.renderer.domElement,
       this.camera.camera,
@@ -343,7 +347,7 @@ export class Game {
       state.enemies.forEach((e, id) => {
         let mesh = this.enemies.get(id);
         if (!mesh) {
-          mesh = new Enemy(e.type);
+          mesh = new Enemy(e.type, this.graphics.low);
           mesh.root.position.set(e.x, 0, e.z);
           this.world.scene.add(mesh.root);
           this.enemies.set(id, mesh);

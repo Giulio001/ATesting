@@ -18,3 +18,21 @@ Prima della richiesta di sospendere le prove: TypeScript e 14 test unitari super
 Su richiesta dell’utente, non sono stati eseguiti ulteriori test, build, integrazione o prove browser per la versione con Guerriero, Arciere, Mago e nuovi effetti. Gli screenshot sopra appartengono alla versione precedente.
 
 La successiva aggiunta della Frontiera, dell’indizio interattivo, del Campione e dei nuovi modelli dei nemici non è stata sottoposta a test, build o prove browser, mantenendo la richiesta di sospendere le prove.
+
+## Profilo grafico mobile
+
+Il profilo Automatico riconosce dispositivi touch, iPhone e iPadOS anche con user agent desktop. La modalità Leggera limita il pixel ratio a 1,2 (Alta: 1,6), disattiva MSAA all’avvio sui dispositivi mobile, ombre e luci puntiformi, conservando illuminazione principale, materiali emissivi ed effetti additivi. I buffer del bloom vengono creati solo in modalità Alta/Automatica desktop e rilasciati passando a Leggera, insieme alle mappe delle ombre.
+
+In Leggera i VFX sono limitati a 48 gruppi simultanei invece di 96, con meno particelle e segmenti nelle geometrie. Le texture procedurali da 256×256 vengono condivise per tipo, con anisotropia ridotta a 1. Non sono stati convertiti asset in KTX2: la scena corrente usa texture generate su canvas e modelli procedurali, con un GLB esterno opzionale.
+
+Anche queste modifiche non sono state sottoposte a test, build o misurazioni su iPhone, come richiesto dall’utente. Non è stata accertata una frequenza di fotogrammi specifica.
+
+## Dettagli di Lumengate
+
+La piazza ha una pavimentazione più chiara, un mosaico attorno alla fontana, intarsi verso il ponte e due anelli emissivi animati sul cristallo. Le case hanno fioriere rialzate e stemmi sui drappi; il mercato ha un tendone a righe e merci colorate, mentre la porta sud ha una cornice a raggiera sullo stemma. I dettagli ripetuti usano InstancedMesh e la vegetazione periferica è stata raggruppata in un solo batch. Non sono state aggiunte luci dinamiche né modificati i collider condivisi. Non sono state eseguite prove o build per queste modifiche.
+
+## Allineamento degli effetti alle armi
+
+Il fendente del Guerriero procedurale usa una scia fra base e punta della lama, aggiornata dalle trasformazioni del braccio animato. La scia dura quanto l’animazione dell’attacco e usa un buffer preallocato, con meno segmenti in Leggera. Frecce e dardi partono rispettivamente dall’arco e dal cristallo del bastone; l’offset visivo iniziale rientra sulla traiettoria del server in 160 ms. Il raggio del Mago segue il cristallo del bastone e punta all’estremo della linea di attacco. Nova e attacchi ad area mantengono il centro stabilito dal server.
+
+I GLB opzionali usano la scia solo quando contengono una mesh rigida riconoscibile dal nome sword/blade; gli altri rig mantengono l’effetto generico e richiedono una configurazione specifica dell’arma. Non sono state eseguite prove o build, come richiesto dall’utente.

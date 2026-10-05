@@ -83,6 +83,8 @@ Il Campione lascia anche un’arma rara per il tuo cammino. Il ponte permette di
 
 La mappa è una prima ricostruzione procedurale 3D. Il capitolo riprende le cinque creature e il quesito sulla corruzione dall’originale; il Campione Cavo è adattato a scontro finale di questa zona. Non è ancora la mappa completa né l’intera campagna di RoundWorld.
 
+Lumengate ha una piazza con mosaici e intarsi in ottone, anelli animati sul cristallo della fontana, fioriere alle finestre, stemmi cittadini e un mercato con tendone a righe. Gli ornamenti ripetuti e la vegetazione usano geometrie istanziate; i nuovi dettagli non aggiungono luci dinamiche.
+
 ### Zaino, equipaggiamento e negozio
 
 Lo zaino riprende la capacità originale: **72 oggetti, tre pagine da 24**, con gli otto slot **testa, collo, corpo, arma, scudo, anello, piedi, compagno**. Seleziona un oggetto per vedere i bonus; doppio clic o **Equipaggia** per indossarlo. La × sullo slot lo rimuove. Bonus di vita, attacco e difesa vengono applicati dal server. Rimuovere l'arma impedisce di attaccare.

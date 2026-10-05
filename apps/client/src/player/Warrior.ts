@@ -21,6 +21,9 @@ export class Warrior {
   private shield?: T.Group;
   private bow?: T.Group;
   private staff?: T.Group;
+  private importedBlade?: T.Mesh;
+  private importedBase = new T.Vector3();
+  private importedTip = new T.Vector3();
   private bladeMat?: T.MeshStandardMaterial;
   private equipmentKey = '';
   private kind: AttackKind = 'slash';
@@ -37,6 +40,24 @@ export class Warrior {
     if (imported) {
       this.body.add(imported.root);
       this.animation = new AnimationController(imported.root, imported.clips);
+      imported.root.traverse((object) => {
+        if (
+          !this.importedBlade &&
+          object instanceof T.Mesh &&
+          !(object instanceof T.SkinnedMesh) &&
+          /sword|blade/i.test(object.name)
+        ) {
+          object.geometry.computeBoundingBox();
+          const box = object.geometry.boundingBox!;
+          const size = box.getSize(new T.Vector3());
+          const axis = size.y >= size.x && size.y >= size.z ? 'y' : size.x >= size.z ? 'x' : 'z';
+          box.getCenter(this.importedBase);
+          this.importedTip.copy(this.importedBase);
+          this.importedBase[axis] = box.min[axis];
+          this.importedTip[axis] = box.max[axis];
+          this.importedBlade = object;
+        }
+      });
     } else this.build(local);
     this.root.add(this.body);
     const ring = new T.Mesh(
@@ -290,6 +311,34 @@ export class Warrior {
     this.combo = (this.combo + 1) % 3;
     this.body.rotation.y = yaw;
     this.animation?.play(kind === 'skill' ? 'Skill01' : (`Attack0${this.combo + 1}` as 'Attack01'));
+    if (!this.animation) this.applyAttackPose(0);
+  }
+  weaponPose(base: T.Vector3, tip: T.Vector3) {
+    if (this.disposed) return false;
+    const weapon =
+      this.classId === 'AETHER_BLADE'
+        ? this.bow
+        : this.classId === 'VOID_KNIGHT'
+          ? this.staff
+          : (this.sword ?? this.importedBlade);
+    if (!weapon || !weapon.visible) return false;
+    if (weapon === this.importedBlade) {
+      base.copy(this.importedBase);
+      tip.copy(this.importedTip);
+    } else if (this.classId === 'AETHER_BLADE') {
+      base.set(0, 0, 0);
+      tip.set(0, 0, 0.3);
+    } else if (this.classId === 'VOID_KNIGHT') {
+      base.set(0, 0.15, 0);
+      tip.set(0, 1.02, 0);
+    } else {
+      base.set(0, 0.15, 0);
+      tip.set(0, 1.17, 0);
+    }
+    weapon.updateWorldMatrix(true, false);
+    base.applyMatrix4(weapon.matrixWorld);
+    tip.applyMatrix4(weapon.matrixWorld);
+    return true;
   }
   hit() {
     this.hurtTime = 0.3;
@@ -361,27 +410,30 @@ export class Warrior {
     capeVertices.needsUpdate = true;
     if (active) {
       const t = 1 - this.attackTime / ATTACKS[this.kind].duration;
-      if (this.kind === 'skill') {
-        this.rightArm.rotation.x = -1.5 + Math.sin(t * Math.PI) * 1.2;
-        this.leftArm.rotation.x = -0.8;
-        this.body.position.y += Math.sin(t * Math.PI) * 0.07;
-      } else {
-        this.rightArm.rotation.x = -1.1;
-        this.rightArm.rotation.z = -0.7 + Math.sin(t * Math.PI) * 1.8;
-        this.rightArm.rotation.y = -1.2 + t * 2.6;
-        this.leftArm.rotation.x = -0.45;
-      }
-      if (this.classId === 'AETHER_BLADE') {
-        this.leftArm.rotation.x = -1.25;
-        this.leftArm.rotation.z = -0.18;
-        this.rightArm.rotation.x = -1.1;
-        this.rightArm.rotation.y = -0.65;
-        this.rightArm.rotation.z = -0.25 - Math.sin(t * Math.PI) * 0.3;
-      } else if (this.classId === 'VOID_KNIGHT') {
-        this.rightArm.rotation.x = -0.55 - Math.sin(t * Math.PI) * 0.5;
-        this.rightArm.rotation.z = -0.25;
-        this.leftArm.rotation.x = -0.7;
-      }
+      this.applyAttackPose(t);
+    }
+  }
+  private applyAttackPose(t: number) {
+    if (this.kind === 'skill') {
+      this.rightArm.rotation.x = -1.5 + Math.sin(t * Math.PI) * 1.2;
+      this.leftArm.rotation.x = -0.8;
+      this.body.position.y += Math.sin(t * Math.PI) * 0.07;
+    } else {
+      this.rightArm.rotation.x = -1.1;
+      this.rightArm.rotation.z = -0.7 + Math.sin(t * Math.PI) * 1.8;
+      this.rightArm.rotation.y = -1.2 + t * 2.6;
+      this.leftArm.rotation.x = -0.45;
+    }
+    if (this.classId === 'AETHER_BLADE') {
+      this.leftArm.rotation.x = -1.25;
+      this.leftArm.rotation.z = -0.18;
+      this.rightArm.rotation.x = -1.1;
+      this.rightArm.rotation.y = -0.65;
+      this.rightArm.rotation.z = -0.25 - Math.sin(t * Math.PI) * 0.3;
+    } else if (this.classId === 'VOID_KNIGHT') {
+      this.rightArm.rotation.x = -0.55 - Math.sin(t * Math.PI) * 0.5;
+      this.rightArm.rotation.z = -0.25;
+      this.leftArm.rotation.x = -0.7;
     }
   }
   dispose() {

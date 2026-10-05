@@ -1,6 +1,10 @@
 import * as T from 'three';
+type TextureKind = 'stone' | 'roof' | 'grass' | 'rift';
+const textures = new Map<TextureKind, T.CanvasTexture>();
 // Original deterministic painted textures, generated locally without downloads.
-export function paintedTexture(kind: 'stone' | 'roof' | 'grass' | 'rift') {
+export function paintedTexture(kind: TextureKind) {
+  const cached = textures.get(kind);
+  if (cached) return cached;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 256;
   const c = canvas.getContext('2d')!;
@@ -81,5 +85,6 @@ export function paintedTexture(kind: 'stone' | 'roof' | 'grass' | 'rift') {
   texture.colorSpace = T.SRGBColorSpace;
   texture.wrapS = texture.wrapT = T.RepeatWrapping;
   texture.anisotropy = 4;
+  textures.set(kind, texture);
   return texture;
 }
