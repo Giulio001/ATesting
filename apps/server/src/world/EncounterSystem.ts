@@ -92,49 +92,68 @@ export class EncounterSystem {
     this.state.enemies.forEach((e, key) => {
       if (
         e.hp <= 0 ||
-        !inAttackRange(p.x, p.z, yaw, kind, e.x, e.z) ||
+        !inAttackRange(p.x, p.z, yaw, kind, e.x, e.z, p.heroClass) ||
         !hasLineOfSight(p.x, p.z, e.x, e.z)
       )
         return;
-      const damage = Math.round(attackDamage(kind, p.level) * (1 + p.attackBonus / 50));
-      e.hp = Math.max(0, e.hp - damage);
-      if (kind === 'skill') {
-        e.stunnedUntil = now + 1000;
-        e.attackAt = 0;
-        e.behavior = 'stunned';
-      }
-      this.runtime.get(key)!.contributors.set(id, now);
-      hits.push({ targetId: key, x: e.x, z: e.z, damage, hp: e.hp, killed: e.hp === 0 });
-      if (e.hp === 0) {
-        e.behavior = 'dead';
-        e.attackAt = 0;
-        e.respawnAt = now + (e.type === 'sentinel' ? 45000 : 20000);
-        for (const [participant, time] of this.runtime.get(key)!.contributors) {
-          const hero = this.state.players.get(participant);
-          if (
-            !hero ||
-            hero.hp <= 0 ||
-            now - time > 15000 ||
-            Math.hypot(hero.x - e.x, hero.z - e.z) > 12
-          )
-            continue;
-          hero.kills++;
-          if (e.type === 'shard' && hero.questState === 1) {
-            hero.questKills = Math.min(QUEST_GOAL, hero.questKills + 1);
-            if (hero.questKills === QUEST_GOAL) hero.questState = 2;
-          }
-          this.events.loot?.(participant, e.type === 'sentinel');
-          this.grant(
-            participant,
-            e.type === 'sentinel' ? 100 : 40,
-            e.type === 'sentinel' ? 40 : 12,
-            false,
-          );
-        }
-        this.runtime.get(key)!.contributors.clear();
-      }
+      const hit = this.hitTarget(
+        id,
+        key,
+        kind,
+        Math.round(attackDamage(kind, p.level) * (1 + p.attackBonus / 50)),
+        now,
+      );
+      if (hit) hits.push(hit);
     });
     return hits;
+  }
+  hitTarget(
+    id: string,
+    key: string,
+    kind: AttackKind,
+    damage: number,
+    now: number,
+  ): CombatHit | null {
+    const p = this.state.players.get(id),
+      e = this.state.enemies.get(key);
+    if (!p || p.hp <= 0 || !e || e.hp <= 0 || p.z < BATTLE_START) return null;
+    e.hp = Math.max(0, e.hp - damage);
+    if (kind === 'skill') {
+      e.stunnedUntil = now + 1000;
+      e.attackAt = 0;
+      e.behavior = 'stunned';
+    }
+    this.runtime.get(key)!.contributors.set(id, now);
+
+    if (e.hp === 0) {
+      e.behavior = 'dead';
+      e.attackAt = 0;
+      e.respawnAt = now + (e.type === 'sentinel' ? 45000 : 20000);
+      for (const [participant, time] of this.runtime.get(key)!.contributors) {
+        const hero = this.state.players.get(participant);
+        if (
+          !hero ||
+          hero.hp <= 0 ||
+          now - time > 15000 ||
+          (participant !== id && Math.hypot(hero.x - e.x, hero.z - e.z) > 12)
+        )
+          continue;
+        hero.kills++;
+        if (e.type === 'shard' && hero.questState === 1) {
+          hero.questKills = Math.min(QUEST_GOAL, hero.questKills + 1);
+          if (hero.questKills === QUEST_GOAL) hero.questState = 2;
+        }
+        this.events.loot?.(participant, e.type === 'sentinel');
+        this.grant(
+          participant,
+          e.type === 'sentinel' ? 100 : 40,
+          e.type === 'sentinel' ? 40 : 12,
+          false,
+        );
+      }
+      this.runtime.get(key)!.contributors.clear();
+    }
+    return { targetId: key, x: e.x, z: e.z, damage, hp: e.hp, killed: e.hp === 0 };
   }
   private grant(id: string, xp: number, gold: number, quest: boolean) {
     const p = this.state.players.get(id)!;

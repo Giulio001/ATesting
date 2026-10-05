@@ -1,5 +1,9 @@
 import { STARTER_GEAR_OFFERS, MATERIAL_CURIOS, itemIconUrl } from './aetheria/itemCatalog.js';
 import { intrinsicGearStats } from './aetheria/gearStats.js';
+import { forgeUpgradedValue } from './aetheria/gearStats.js';
+export { FORGE_MAX_UPGRADE, forgeUpgradedValue } from './aetheria/gearStats.js';
+export { forgeUpgradeCost, forgeSalvageValue } from './aetheria/forge.js';
+export * from './aetheria/forgeMaterials.js';
 export { STARTER_GEAR_OFFERS, MATERIAL_CURIOS, itemIconUrl, intrinsicGearStats };
 export { equipRefusal } from './aetheria/equipment.js';
 export const EQUIPMENT_SLOTS = [
@@ -44,6 +48,14 @@ export const NPCS = [
     service: 'shop',
   },
   { id: 'herald', name: 'Araldo dei Clan', role: 'Registro dei clan', x: 6, z: 1, service: 'clan' },
+  {
+    id: 'blacksmith',
+    name: 'Fabbro',
+    role: 'Potenziamento e riciclo',
+    x: -6,
+    z: -1.5,
+    service: 'forge',
+  },
 ] as const;
 export type NpcId = (typeof NPCS)[number]['id'];
 export function nearbyNpc(x: number, z: number) {
@@ -60,6 +72,18 @@ export interface Item {
   description: string;
   stats: Record<string, number>;
   price: number;
+  upgradeLevel?: number;
+}
+// Stored stats remain at +0; both the sheet and combat calculate the same upgrade gains.
+export function itemStats(item: Item): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(item.stats).map(([key, value]) => [key, forgeUpgradedValue(item, key, value)]),
+  );
+}
+export function protectedStarterItem(item: Item): boolean {
+  return STARTER_GEAR_OFFERS.some(
+    (offer) => item.id === offer.itemId || item.id.startsWith(`${offer.itemId}-daily-`),
+  );
 }
 export interface ClanSummary {
   id: string;
@@ -75,6 +99,8 @@ export interface ClanView extends ClanSummary {
 }
 export interface RPGSnapshot {
   profileId: string;
+  aetherDust: number;
+  heroClass: HeroClass;
   items: Item[];
   equipment: Partial<Record<EquipmentSlot, string>>;
   stats: Record<string, number>;
@@ -120,9 +146,79 @@ export const ABILITIES = {
   },
 } as const;
 export type AbilityId = keyof typeof ABILITIES;
-export function starterKit(): Item[] {
+export const HERO_CLASSES = ['GUARDIAN', 'AETHER_BLADE', 'VOID_KNIGHT'] as const;
+export type HeroClass = (typeof HERO_CLASSES)[number];
+export const CLASS_NAMES: Record<HeroClass, string> = {
+  GUARDIAN: 'Guerriero',
+  AETHER_BLADE: 'Arciere',
+  VOID_KNIGHT: 'Mago',
+};
+export function heroClass(value: unknown): HeroClass {
+  return HERO_CLASSES.includes(value as HeroClass) ? (value as HeroClass) : 'GUARDIAN';
+}
+// Original spell dimensions converted from pixels to the 3D world's units (50 px/m).
+export const MAGE_SPELL = {
+  beamLength: 7.6,
+  beamHalfWidth: 0.76,
+  novaAhead: 4.2,
+  barrierMana: 22,
+} as const;
+export function classAbilities(value: unknown) {
+  const cls = heroClass(value);
+  if (cls === 'AETHER_BLADE')
+    return {
+      SLASH: {
+        ...ABILITIES.SLASH,
+        name: 'Freccia d’Aether',
+        icon: 'bow_reinforced',
+        description: 'Una freccia potenziata che viaggia verso il bersaglio.',
+      },
+      GUARD: { ...ABILITIES.GUARD, name: 'Guardia del Ranger' },
+      BURST: {
+        ...ABILITIES.BURST,
+        name: 'Raffica d’Aether',
+        icon: 'bow_reinforced',
+        description: 'Tre frecce a ventaglio, ognuna con il 55% del danno base.',
+      },
+    };
+  if (cls === 'VOID_KNIGHT')
+    return {
+      SLASH: {
+        ...ABILITIES.SLASH,
+        name: 'Raggio Arcano',
+        range: MAGE_SPELL.beamLength,
+        icon: 'scepter_oak',
+        description: 'Un raggio che trapassa i nemici in linea retta.',
+      },
+      GUARD: {
+        ...ABILITIES.GUARD,
+        name: 'Barriera Arcana',
+        cost: MAGE_SPELL.barrierMana,
+        description: 'Riduce del 60% i danni per 2,5 secondi. Consuma solo mana.',
+      },
+      BURST: {
+        ...ABILITIES.BURST,
+        name: 'Nova del Vuoto',
+        description: 'Una nova che esplode nel punto mirato, davanti al Mago.',
+      },
+    };
+  return ABILITIES;
+}
+export function starterKit(value: unknown = 'GUARDIAN'): Item[] {
+  const cls = heroClass(value);
+  const weapon =
+    cls === 'AETHER_BLADE'
+      ? 'STARTER_BOW'
+      : cls === 'VOID_KNIGHT'
+        ? 'STARTER_CATALYST'
+        : 'STARTER_WEAPON';
   return STARTER_GEAR_OFFERS.filter((x) =>
-    ['STARTER_WEAPON', 'STARTER_ARMOR', 'STARTER_HEAD', 'STARTER_OFFHAND'].includes(x.shopId),
+    [
+      weapon,
+      'STARTER_ARMOR',
+      'STARTER_HEAD',
+      ...(cls === 'GUARDIAN' ? ['STARTER_OFFHAND'] : []),
+    ].includes(x.shopId),
   ).map((o) => ({
     id: o.itemId,
     kind: o.kind,
@@ -143,6 +239,40 @@ export function starterKit(): Item[] {
   }));
 }
 export const SHOP_ITEMS: Item[] = [
+  {
+    id: 'shop-bow',
+    kind: 'WEAPON',
+    name: 'Reinforced Bow',
+    icon: 'bow_reinforced',
+    rarity: 'COMMON',
+    quantity: 1,
+    level: 1,
+    description: 'Arco rinforzato per il cammino dell’Arciere.',
+    stats: intrinsicGearStats({
+      kind: 'WEAPON',
+      name: 'Reinforced Bow',
+      icon: 'bow_reinforced',
+      rarity: 'COMMON',
+    }),
+    price: 45,
+  },
+  {
+    id: 'shop-scepter',
+    kind: 'WEAPON',
+    name: 'Oak Staff',
+    icon: 'scepter_oak',
+    rarity: 'COMMON',
+    quantity: 1,
+    level: 1,
+    description: 'Bastone di quercia per il cammino del Mago.',
+    stats: intrinsicGearStats({
+      kind: 'WEAPON',
+      name: 'Oak Staff',
+      icon: 'scepter_oak',
+      rarity: 'COMMON',
+    }),
+    price: 45,
+  },
   {
     id: 'health-potion',
     kind: 'CONSUMABLE',

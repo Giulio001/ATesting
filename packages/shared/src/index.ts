@@ -1,4 +1,5 @@
 import { experienceToNextLevel } from './aetheria/progression.js';
+import { MAGE_SPELL } from './rpg.js';
 export { MAX_LEVEL, experienceToNextLevel } from './aetheria/progression.js';
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;
@@ -41,6 +42,9 @@ export interface CombatEvent {
   damage: number;
   hp: number;
   hits: CombatHit[];
+  heroClass?: string;
+  projectile?: { id: string; speed: number; range: number };
+  impactOnly?: boolean;
 }
 export interface CombatHit {
   targetId: string;
@@ -137,7 +141,17 @@ export function inAttackRange(
   kind: AttackKind,
   tx = DUMMY.x,
   tz = DUMMY.z,
+  cls = 'GUARDIAN',
 ) {
+  if (cls === 'VOID_KNIGHT' && kind === 'aether') {
+    const along = (tx - x) * Math.sin(yaw) + (tz - z) * Math.cos(yaw);
+    const across = Math.abs((tx - x) * Math.cos(yaw) - (tz - z) * Math.sin(yaw));
+    return along >= 0 && along <= MAGE_SPELL.beamLength && across <= MAGE_SPELL.beamHalfWidth;
+  }
+  if (cls === 'VOID_KNIGHT' && kind === 'skill') {
+    x += Math.sin(yaw) * MAGE_SPELL.novaAhead;
+    z += Math.cos(yaw) * MAGE_SPELL.novaAhead;
+  }
   const dx = tx - x,
     dz = tz - z;
   const distance = Math.hypot(dx, dz);

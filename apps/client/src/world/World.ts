@@ -1,5 +1,5 @@
 import * as T from 'three';
-import { OBSTACLES, DUMMY, CUSTODIAN } from '@aetheria/shared';
+import { OBSTACLES, DUMMY, CUSTODIAN, NPCS } from '@aetheria/shared';
 import { paintedTexture } from './Art';
 const material = (color: number, metalness = 0, roughness = 0.85) =>
   new T.MeshStandardMaterial({ color, metalness, roughness, flatShading: true });
@@ -422,10 +422,10 @@ export class World {
     }
     this.mesh(new T.CylinderGeometry(0.035, 0.04, 1.85, 8), gold, this.custodian, 0.48, 1);
     this.mesh(new T.OctahedronGeometry(0.14), glow, this.custodian, 0.48, 1.98);
-    for (const [x, z, color] of [
-      [-6, 3.4, 0x706144],
-      [6, 1, 0x675082],
-    ]) {
+    for (const service of NPCS.slice(1)) {
+      const { x, z } = service;
+      const color =
+        service.service === 'forge' ? 0x935e43 : service.service === 'clan' ? 0x675082 : 0x706144;
       const npc = this.custodian.clone(true);
       npc.position.set(x, 0, z);
       npc.rotation.y = x < 0 ? 0.4 : -0.5;
@@ -434,6 +434,23 @@ export class World {
       });
       this.scene.add(npc);
     }
+    const smith = NPCS.find((npc) => npc.id === 'blacksmith')!;
+    const anvil = new T.Group();
+    anvil.position.set(smith.x - 1, 0, smith.z - 1.2);
+    this.scene.add(anvil);
+    this.mesh(new T.BoxGeometry(0.65, 0.35, 0.55), stone, anvil, 0, 0.18);
+    this.mesh(new T.BoxGeometry(0.35, 0.5, 0.35), dark, anvil, 0, 0.6);
+    this.mesh(new T.BoxGeometry(1.1, 0.25, 0.5), gold, anvil, 0, 0.94);
+    const furnace = new T.Group();
+    furnace.position.set(smith.x - 1.6, 0, smith.z - 2.4);
+    this.scene.add(furnace);
+    this.mesh(new T.BoxGeometry(1.25, 1.6, 0.9), dark, furnace, 0, 0.8);
+    const embers = new T.MeshStandardMaterial({
+      color: 0xffae48,
+      emissive: 0xff641f,
+      emissiveIntensity: 2,
+    });
+    this.mesh(new T.BoxGeometry(0.75, 0.5, 0.03), embers, furnace, 0, 0.65, 0.46);
     // Market canopy, crates, planters and scattered leaves add life to the square.
     const stall = new T.Group();
     stall.position.set(-6, 0, 2);

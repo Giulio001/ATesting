@@ -17,6 +17,8 @@ import {
 import { RPGSystem } from '../rpg/RPGSystem.ts';
 import { ABILITIES, nearbyNpc, type AbilityId } from '@aetheria/shared';
 import { EncounterSystem } from '../world/EncounterSystem.ts';
+import { ProjectileSystem } from '../world/ProjectileSystem.ts';
+import { classAbilities, MAGE_SPELL } from '@aetheria/shared';
 
 interface Session {
   physics: PhysicsPlayer;
@@ -34,6 +36,7 @@ export class LumengateRoom extends Room<WorldState> {
   private sessions = new Map<string, Session>();
   private encounters!: EncounterSystem;
   private rpg!: RPGSystem;
+  private projectiles!: ProjectileSystem;
   private static rooms = new Set<LumengateRoom>();
   private lastSave = 0;
   async onCreate() {
@@ -66,6 +69,40 @@ export class LumengateRoom extends Room<WorldState> {
       dialogue: (id, e) => this.clients.find((c) => c.sessionId === id)?.send('dialogue', e),
     });
     this.setPatchRate(1000 / 15);
+    this.projectiles = new ProjectileSystem({
+      alive: (id) => (this.state.players.get(id)?.hp ?? 0) > 0,
+      targets: (id) => {
+        const p = this.state.players.get(id);
+        const targets = this.state.dummyHp > 0 ? [{ id: 'dummy', ...DUMMY, radius: 0.5 }] : [];
+        if (p && p.z >= 10)
+          for (const [id, enemy] of this.state.enemies) {
+            if (enemy.hp > 0)
+              targets.push({
+                id,
+                x: enemy.x,
+                z: enemy.z,
+                radius: enemy.type === 'sentinel' ? 0.8 : 0.45,
+                maxHp: enemy.maxHp,
+              });
+          }
+        return targets;
+      },
+      hit: (id, target, event, damage, now) => {
+        if (target !== 'dummy')
+          return this.encounters.hitTarget(id, target, event.kind, damage, now);
+        if (this.state.dummyHp <= 0) return null;
+        this.state.dummyHp = Math.max(0, this.state.dummyHp - damage);
+        if (!this.state.dummyHp) this.state.respawnAt = now + 6000;
+        return {
+          targetId: 'dummy',
+          ...DUMMY,
+          damage,
+          hp: this.state.dummyHp,
+          killed: this.state.dummyHp === 0,
+        };
+      },
+      broadcast: (event) => this.broadcast('combat', event),
+    });
     this.onMessage('input', (client, value: unknown) => {
       const session = this.sessions.get(client.sessionId),
         input = sanitizeInput(value);
@@ -152,6 +189,8 @@ export class LumengateRoom extends Room<WorldState> {
     });
     this.onMessage('inventory', (c, v) => this.rpg.inventory(c.sessionId, v));
     this.onMessage('buy', (c, v) => this.rpg.buy(c.sessionId, v));
+    this.onMessage('forge', (c, v) => this.rpg.forge(c.sessionId, v));
+    this.onMessage('class', (c, v) => this.rpg.selectClass(c.sessionId, v));
     this.onMessage('clan', (c, v) => this.rpg.clan(c.sessionId, v));
     this.onMessage('chat', (c, v) => {
       const chat = this.rpg.chat(c.sessionId, v);
@@ -166,7 +205,7 @@ export class LumengateRoom extends Room<WorldState> {
     });
     this.setSimulationInterval(() => this.tick(), DT * 1000);
   }
-  onJoin(client: Client, options: { name?: unknown; token?: unknown }) {
+  onJoin(client: Client, options: { name?: unknown; token?: unknown; heroClass?: unknown }) {
     const p = new PlayerState(),
       index = this.sessions.size;
     p.x = SPAWN.x + (index % 4) * 1.1;
@@ -181,7 +220,9 @@ export class LumengateRoom extends Room<WorldState> {
         : 'Viandante';
     this.state.players.set(client.sessionId, p);
     try {
-      this.rpg.join(client.sessionId, p.name, options.token);
+      this.rpg.join(client.sessionId, p.name, options.token, options.heroClass);
+      if (options.heroClass !== undefined)
+        this.rpg.selectClass(client.sessionId, options.heroClass);
     } catch (error) {
       this.state.players.delete(client.sessionId);
       throw error;
@@ -239,6 +280,7 @@ export class LumengateRoom extends Room<WorldState> {
       p.z = t.z;
     }
     this.encounters.tick(now);
+    this.projectiles.tick(DT, now);
     if (now - this.lastSave > 5000) {
       this.lastSave = now;
       for (const id of this.sessions.keys()) this.rpg.checkpoint(id);
@@ -256,9 +298,11 @@ export class LumengateRoom extends Room<WorldState> {
     }
     const p = this.state.players.get(client.sessionId),
       now = Date.now();
-    if (!p || p.hp <= 0 || now < p.guardReadyAt || p.mana < 12 || p.stamina < 30) return;
-    p.mana -= 12;
-    p.stamina -= 30;
+    const cost = classAbilities(p?.heroClass).GUARD.cost,
+      stamina = p?.heroClass === 'VOID_KNIGHT' ? 0 : 30;
+    if (!p || p.hp <= 0 || now < p.guardReadyAt || p.mana < cost || p.stamina < stamina) return;
+    p.mana -= cost;
+    p.stamina -= stamina;
     p.guardReadyAt = now + 6500;
     p.guardUntil = now + 2500;
     this.broadcast('guard', { playerId: client.sessionId, x: p.x, z: p.z, until: p.guardUntil });
@@ -279,7 +323,7 @@ export class LumengateRoom extends Room<WorldState> {
       p.stamina -= 25;
     } else {
       const ability = kind === 'aether' ? 'SLASH' : 'BURST';
-      const rules = ABILITIES[ability];
+      const rules = classAbilities(p.heroClass)[ability];
       const ready = kind === 'aether' ? p.slashReadyAt : p.skillUntil;
       if (
         now < ready ||
@@ -295,11 +339,35 @@ export class LumengateRoom extends Room<WorldState> {
     else s.lastAttack = now;
     s.actionUntil = now + config.duration * 1000;
     p.yaw = yaw;
+    const damage = Math.round(attackDamage(kind, p.level) * (1 + p.attackBonus / 50));
+    if (p.heroClass === 'AETHER_BLADE' || (p.heroClass === 'VOID_KNIGHT' && kind === 'slash')) {
+      for (const offset of p.heroClass === 'AETHER_BLADE' && kind === 'skill'
+        ? [-0.16, 0, 0.16]
+        : [0]) {
+        this.projectiles.spawn(
+          {
+            playerId: client.sessionId,
+            heroClass: p.heroClass,
+            kind,
+            x: p.x,
+            z: p.z,
+            yaw: yaw + offset,
+            hit: false,
+            damage: 0,
+            hp: this.state.dummyHp,
+            hits: [],
+          },
+          kind === 'aether' ? 13 : kind === 'skill' ? 11.2 : 9.4,
+          kind === 'slash' ? 24 : 21,
+          Math.round(damage * (kind === 'skill' ? 0.55 : 1)),
+        );
+      }
+      return;
+    }
     const hit =
       this.state.dummyHp > 0 &&
-      inAttackRange(p.x, p.z, yaw, kind) &&
+      inAttackRange(p.x, p.z, yaw, kind, DUMMY.x, DUMMY.z, p.heroClass) &&
       hasLineOfSight(p.x, p.z, DUMMY.x, DUMMY.z);
-    const damage = Math.round(attackDamage(kind, p.level) * (1 + p.attackBonus / 50));
     const hits = this.encounters.strike(client.sessionId, kind, yaw, now);
     if (hit) {
       this.state.dummyHp = Math.max(0, this.state.dummyHp - damage);
@@ -315,9 +383,18 @@ export class LumengateRoom extends Room<WorldState> {
     }
     const event: CombatEvent = {
       playerId: client.sessionId,
+      heroClass: p.heroClass,
       kind,
-      x: p.x,
-      z: p.z,
+      x:
+        p.x +
+        (p.heroClass === 'VOID_KNIGHT' && kind === 'skill'
+          ? Math.sin(yaw) * MAGE_SPELL.novaAhead
+          : 0),
+      z:
+        p.z +
+        (p.heroClass === 'VOID_KNIGHT' && kind === 'skill'
+          ? Math.cos(yaw) * MAGE_SPELL.novaAhead
+          : 0),
       yaw,
       hit: hits.length > 0,
       damage: hits.reduce((sum, h) => sum + h.damage, 0),

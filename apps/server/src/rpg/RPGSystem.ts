@@ -9,12 +9,29 @@ import {
   CLAN_CREATION_COST,
   intrinsicGearStats,
   equipRefusal,
+  heroClass,
+  HERO_CLASSES,
+  CLASS_NAMES,
+  starterKit,
+  itemStats,
+  protectedStarterItem,
+  FORGE_MAX_UPGRADE,
+  forgeUpgradeCost,
+  forgeSalvageValue,
+  forgeUpgradeMaterials,
+  hasMaterials,
+  materialIdOf,
+  MATERIAL_STACK_MAX,
+  FORGE_MATERIAL_DROPS,
+  forgeMaterialFor,
+  rollForgeMaterialRarity,
+  type ForgeMaterialRequirement,
   type RPGSnapshot,
   type EquipmentSlot,
   type Item,
 } from '@aetheria/shared';
 import type { WorldState, PlayerState } from '@aetheria/shared/schema';
-import { repository, type Profile, type Clan } from './Repository.ts';
+import { repository, type Profile, type Clan, type Repository } from './Repository.ts';
 interface Events {
   send(id: string, type: string, value: unknown): void;
   changed(): void;
@@ -25,15 +42,18 @@ export class RPGSystem {
   constructor(
     private state: WorldState,
     private events: Events,
+    private random: () => number = Math.random,
+    private storage: Repository = repository,
   ) {}
-  join(id: string, name: string, token: unknown) {
-    const profile = repository.open(token, name);
+  join(id: string, name: string, token: unknown, selectedClass?: unknown) {
+    const profile = this.storage.open(token, name, selectedClass);
     if ([...this.profiles.values()].some((p) => p.id === profile.id))
       throw new Error(
         'Questo personaggio è già connesso. Apri una finestra privata per un secondo giocatore.',
       );
     this.profiles.set(id, profile);
     const p = this.state.players.get(id)!;
+    p.heroClass = profile.heroClass;
     for (const key of [
       'level',
       'xp',
@@ -51,7 +71,7 @@ export class RPGSystem {
   identity(id: string) {
     const p = this.state.players.get(id),
       profile = this.profiles.get(id);
-    if (p && profile) p.clanName = repository.clans[profile.clanId]?.name ?? '';
+    if (p && profile) p.clanName = this.storage.clans[profile.clanId]?.name ?? '';
   }
   checkpoint(id: string) {
     const p = this.state.players.get(id),
@@ -68,7 +88,7 @@ export class RPGSystem {
       'manaPotions',
     ] as const)
       profile[key] = p[key];
-    repository.save();
+    this.storage.save();
   }
   leave(id: string) {
     this.checkpoint(id);
@@ -79,10 +99,12 @@ export class RPGSystem {
   snapshot(id: string): RPGSnapshot | null {
     const profile = this.profiles.get(id);
     if (!profile) return null;
-    const c = repository.clans[profile.clanId];
+    const c = this.storage.clans[profile.clanId];
     const online = new Set([...this.profiles.values()].map((p) => p.id));
     return {
       profileId: profile.id,
+      aetherDust: profile.aetherDust,
+      heroClass: profile.heroClass,
       items: profile.items,
       equipment: profile.equipment,
       stats: this.totalStats(profile),
@@ -96,7 +118,7 @@ export class RPGSystem {
             founderId: c.founderId,
             roster: c.members.map((id) => ({
               id,
-              name: repository.profiles[id]?.name ?? 'Guardian',
+              name: this.storage.profiles[id]?.name ?? 'Guardian',
               role: id === c.founderId ? 'FOUNDER' : 'MEMBER',
               online: online.has(id),
             })),
@@ -104,12 +126,12 @@ export class RPGSystem {
               c.founderId === profile.id
                 ? c.requests.map((id) => ({
                     id,
-                    name: repository.profiles[id]?.name ?? 'Guardian',
+                    name: this.storage.profiles[id]?.name ?? 'Guardian',
                   }))
                 : [],
           }
         : null,
-      clans: Object.values(repository.clans).map((c) => ({
+      clans: Object.values(this.storage.clans).map((c) => ({
         id: c.id,
         name: c.name,
         motto: c.motto,
@@ -140,7 +162,8 @@ export class RPGSystem {
     const stats: Record<string, number> = {};
     for (const iid of Object.values(profile.equipment)) {
       const item = profile.items.find((i) => i.id === iid);
-      if (item) for (const [k, v] of Object.entries(item.stats)) stats[k] = (stats[k] ?? 0) + v;
+      if (item)
+        for (const [k, v] of Object.entries(itemStats(item))) stats[k] = (stats[k] ?? 0) + v;
     }
     return stats;
   }
@@ -173,7 +196,7 @@ export class RPGSystem {
         this.toast(id, 'Il tuo livello è troppo basso per questo oggetto.');
         return;
       }
-      if (equipRefusal('GUARDIAN', item.kind, item.name, item.id)) {
+      if (equipRefusal(profile.heroClass, item.kind, item.name, item.id)) {
         this.toast(id, 'Questo equipaggiamento appartiene a un altro cammino.');
         return;
       }
@@ -183,6 +206,32 @@ export class RPGSystem {
     this.stats(id);
     this.checkpoint(id);
     this.send(id);
+  }
+  selectClass(id: string, value: unknown) {
+    const profile = this.profiles.get(id),
+      p = this.state.players.get(id);
+    if (!profile || !p || !HERO_CLASSES.includes(value as never) || p.hp <= 0 || p.z >= 10) return;
+    const cls = heroClass(value);
+    if (cls === profile.heroClass) return;
+    const kit = starterKit(cls),
+      missing = kit.filter((item) => !profile.items.some((i) => i.id === item.id));
+    if (profile.items.length + missing.length > BAG_CAPACITY) {
+      this.toast(id, 'Libera spazio nello zaino prima di cambiare cammino.');
+      return;
+    }
+    profile.items.push(...missing);
+    profile.heroClass = p.heroClass = cls;
+    for (const [slot, iid] of Object.entries(profile.equipment)) {
+      const item = profile.items.find((i) => i.id === iid);
+      if (item && equipRefusal(cls, item.kind, item.name, item.id))
+        delete profile.equipment[slot as EquipmentSlot];
+    }
+    profile.equipment.WEAPON = kit.find((item) => item.kind === 'WEAPON')!.id;
+    if (cls === 'GUARDIAN') profile.equipment.OFFHAND = 'wood-shield';
+    this.stats(id);
+    this.checkpoint(id);
+    this.send(id);
+    this.toast(id, `Cammino scelto: ${CLASS_NAMES[cls]}.`);
   }
   buy(id: string, value: unknown) {
     if (!this.near(id, 'quartermaster')) {
@@ -210,9 +259,98 @@ export class RPGSystem {
     this.send(id);
     this.toast(id, `${offer.name} acquistato.`);
   }
+  forge(id: string, value: unknown) {
+    const profile = this.profiles.get(id),
+      p = this.state.players.get(id);
+    if (!profile || !p || !value || typeof value !== 'object') return;
+    const v = value as Record<string, unknown>;
+    if (v.action !== 'upgrade' && v.action !== 'salvage') return;
+    if (!this.near(id, 'blacksmith')) {
+      this.toast(id, 'Avvicinati al Fabbro per usare la forgia.');
+      return;
+    }
+    const item = profile.items.find((i) => i.id === v.id);
+    if (!item || !EQUIPMENT_SLOTS.includes(item.kind as EquipmentSlot)) return;
+    if (v.action === 'salvage') {
+      if (Object.values(profile.equipment).includes(item.id) || protectedStarterItem(item)) {
+        this.toast(id, 'Il kit iniziale e gli oggetti indossati non possono essere riciclati.');
+        return;
+      }
+      const dust = forgeSalvageValue(item.rarity, item.upgradeLevel);
+      profile.items = profile.items.filter((i) => i.id !== item.id);
+      profile.aetherDust += dust;
+      this.toast(id, `${item.name} riciclato: +${dust} Polvere d’Aether.`);
+    } else {
+      const level = (item.upgradeLevel ?? 0) + 1;
+      if (level > FORGE_MAX_UPGRADE) {
+        this.toast(id, 'Questo oggetto ha raggiunto il limite +9.');
+        return;
+      }
+      const cost = forgeUpgradeCost(level, item.rarity);
+      const materials = forgeUpgradeMaterials(level, item.rarity, item.level);
+      if (
+        p.gold < cost.goldCost ||
+        profile.aetherDust < cost.dustCost ||
+        !hasMaterials(profile.items, materials)
+      ) {
+        this.toast(id, 'Risorse insufficienti: controlla oro, polvere e materiali richiesti.');
+        return;
+      }
+      this.takeMaterials(profile, materials);
+      p.gold -= cost.goldCost;
+      profile.aetherDust -= cost.dustCost;
+      if (this.random() < cost.chance) {
+        item.upgradeLevel = level;
+        this.stats(id);
+        this.toast(id, `${item.name} potenziato a +${level}.`);
+      } else
+        this.toast(id, 'Tentativo fallito: risorse consumate, oggetto e potenziamento conservati.');
+    }
+    this.checkpoint(id);
+    this.send(id);
+  }
+  private takeMaterials(profile: Profile, needs: readonly ForgeMaterialRequirement[]) {
+    for (const need of needs) {
+      let remaining = need.quantity;
+      for (const item of profile.items) {
+        if (materialIdOf(item) !== need.id) continue;
+        const spent = Math.min(item.quantity, remaining);
+        item.quantity -= spent;
+        remaining -= spent;
+        if (!remaining) break;
+      }
+    }
+    profile.items = profile.items.filter((item) => item.quantity > 0);
+  }
+  private forgeLoot(profile: Profile, elite: boolean) {
+    // Lumengate uses the original frontier trash/elite rewards and material tables.
+    profile.aetherDust += elite ? 4 : 1;
+    const grade = elite ? 'ELITE' : 'TRASH',
+      table = FORGE_MATERIAL_DROPS[grade];
+    if (this.random() >= table.chance * 0.96) return;
+    const material = forgeMaterialFor('FRONTIER', rollForgeMaterialRarity(grade, this.random()));
+    const existing = profile.items.find(
+      (i) => materialIdOf(i) === material.id && i.quantity < MATERIAL_STACK_MAX,
+    );
+    if (existing) existing.quantity++;
+    else if (profile.items.length < BAG_CAPACITY)
+      profile.items.push({
+        id: randomUUID(),
+        kind: 'MATERIAL',
+        name: material.name,
+        icon: material.id,
+        rarity: material.rarity,
+        quantity: 1,
+        level: 1,
+        description: 'Materiale della Frontiera per i potenziamenti dal +5.',
+        stats: {},
+        price: 0,
+      });
+  }
   loot(id: string, elite: boolean) {
     const profile = this.profiles.get(id);
     if (!profile) return;
+    this.forgeLoot(profile, elite);
     const material = MATERIAL_CURIOS.find(
       (m) => m.id === (elite ? 'monster_core' : 'aether_shard'),
     )!;
@@ -236,16 +374,36 @@ export class RPGSystem {
       const gear: Item = {
         id: randomUUID(),
         kind: 'WEAPON',
-        name: 'Steel Sword',
-        icon: 'sword_steel',
+        name:
+          profile.heroClass === 'AETHER_BLADE'
+            ? 'Grove Bow'
+            : profile.heroClass === 'VOID_KNIGHT'
+              ? 'Amethyst Staff'
+              : 'Steel Sword',
+        icon:
+          profile.heroClass === 'AETHER_BLADE'
+            ? 'bow_grove'
+            : profile.heroClass === 'VOID_KNIGHT'
+              ? 'scepter_amethyst'
+              : 'sword_steel',
         rarity: 'RARE',
         quantity: 1,
         level: 2,
         description: 'Lama rara recuperata dal Custode del Vuoto.',
         stats: intrinsicGearStats({
           kind: 'WEAPON',
-          name: 'Steel Sword',
-          icon: 'sword_steel',
+          name:
+            profile.heroClass === 'AETHER_BLADE'
+              ? 'Grove Bow'
+              : profile.heroClass === 'VOID_KNIGHT'
+                ? 'Amethyst Staff'
+                : 'Steel Sword',
+          icon:
+            profile.heroClass === 'AETHER_BLADE'
+              ? 'bow_grove'
+              : profile.heroClass === 'VOID_KNIGHT'
+                ? 'scepter_amethyst'
+                : 'sword_steel',
           rarity: 'RARE',
         }),
         price: 0,
@@ -260,7 +418,7 @@ export class RPGSystem {
       p = this.state.players.get(id);
     if (!profile || !p || !value || typeof value !== 'object') return;
     const v = value as Record<string, unknown>,
-      c = repository.clans[profile.clanId];
+      c = this.storage.clans[profile.clanId];
     if (v.action === 'create') {
       if (!this.near(id, 'herald')) {
         this.toast(id, 'Solo l’Araldo dei Clan può registrare un clan.');
@@ -275,7 +433,7 @@ export class RPGSystem {
         return;
       }
       if (
-        Object.values(repository.clans).some((c) => c.name.toLowerCase() === name.toLowerCase())
+        Object.values(this.storage.clans).some((c) => c.name.toLowerCase() === name.toLowerCase())
       ) {
         this.toast(id, 'Esiste già un clan con questo nome.');
         return;
@@ -293,16 +451,16 @@ export class RPGSystem {
         requests: [],
         treasury: 0,
       };
-      repository.clans[clan.id] = clan;
+      this.storage.clans[clan.id] = clan;
       profile.clanId = clan.id;
       p.gold -= CLAN_CREATION_COST;
     } else if (v.action === 'request' && !c) {
-      const target = repository.clans[String(v.clanId)];
+      const target = this.storage.clans[String(v.clanId)];
       if (!target || target.requests.includes(profile.id) || target.requests.length >= 100) return;
       target.requests.push(profile.id);
       this.toast(id, 'Richiesta inviata al fondatore.');
     } else if (v.action === 'accept' && c?.founderId === profile.id) {
-      const target = repository.profiles[String(v.profileId)];
+      const target = this.storage.profiles[String(v.profileId)];
       if (!target || target.clanId || !c.requests.includes(target.id) || c.members.length >= 50)
         return;
       c.members.push(target.id);
@@ -315,9 +473,9 @@ export class RPGSystem {
       }
       c.members = c.members.filter((i) => i !== profile.id);
       profile.clanId = '';
-      if (c.members.length === 0) delete repository.clans[c.id];
+      if (c.members.length === 0) delete this.storage.clans[c.id];
     } else if (v.action === 'kick' && c?.founderId === profile.id && v.profileId !== profile.id) {
-      const target = repository.profiles[String(v.profileId)];
+      const target = this.storage.profiles[String(v.profileId)];
       if (!target || target.clanId !== c.id) return;
       c.members = c.members.filter((i) => i !== target.id);
       target.clanId = '';

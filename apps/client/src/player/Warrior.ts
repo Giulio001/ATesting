@@ -19,6 +19,8 @@ export class Warrior {
   private guardTime = 0;
   private sword?: T.Group;
   private shield?: T.Group;
+  private bow?: T.Group;
+  private staff?: T.Group;
   private bladeMat?: T.MeshStandardMaterial;
   private equipmentKey = '';
   private kind: AttackKind = 'slash';
@@ -26,8 +28,12 @@ export class Warrior {
   private disposed = false;
   private hurtTime = 0;
   private armor?: T.MeshStandardMaterial;
-  constructor(assets: AssetLoader, local = false) {
-    const imported = assets.instantiateWarrior();
+  constructor(
+    assets: AssetLoader,
+    local = false,
+    readonly classId = 'GUARDIAN',
+  ) {
+    const imported = classId === 'GUARDIAN' ? assets.instantiateWarrior() : null;
     if (imported) {
       this.body.add(imported.root);
       this.animation = new AnimationController(imported.root, imported.clips);
@@ -48,8 +54,15 @@ export class Warrior {
   }
   private build(local: boolean) {
     const armor = new T.MeshStandardMaterial({
-      color: local ? 0x8eafb9 : 0x8a939f,
-      metalness: 0.65,
+      color:
+        this.classId === 'AETHER_BLADE'
+          ? 0x718969
+          : this.classId === 'VOID_KNIGHT'
+            ? 0x7770a7
+            : local
+              ? 0x8eafb9
+              : 0x8a939f,
+      metalness: this.classId === 'GUARDIAN' ? 0.65 : 0.2,
       roughness: 0.35,
       flatShading: true,
     });
@@ -61,7 +74,14 @@ export class Warrior {
       flatShading: true,
     });
     const cloth = new T.MeshStandardMaterial({
-      color: local ? 0x244d68 : 0x51426b,
+      color:
+        this.classId === 'AETHER_BLADE'
+          ? 0x243f2b
+          : this.classId === 'VOID_KNIGHT'
+            ? 0x32234f
+            : local
+              ? 0x244d68
+              : 0x51426b,
       roughness: 1,
       flatShading: true,
     });
@@ -124,6 +144,40 @@ export class Warrior {
       mesh(new T.BoxGeometry(0.1, 0.027, 0.035), eyes, this.body, sign * 0.1, 1.672, 0.268);
     mesh(new T.BoxGeometry(0.04, 0.3, 0.08), gold, this.body, 0, 1.61, 0.26);
     mesh(new T.ConeGeometry(0.12, 0.35, 4), gold, this.body, 0, 1.92).scale.z = 0.4;
+    if (this.classId !== 'GUARDIAN') {
+      const hood = mesh(
+        new T.SphereGeometry(0.31, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.7),
+        cloth,
+        this.body,
+        0,
+        1.78,
+        -0.04,
+      );
+      hood.rotation.x = -0.18;
+      if (this.classId === 'VOID_KNIGHT') {
+        mesh(new T.ConeGeometry(0.32, 0.62, 8), cloth, this.body, 0, 2.03);
+        mesh(new T.ConeGeometry(0.38, 0.8, 10), cloth, this.body, 0, 0.61).rotation.z = Math.PI;
+      } else {
+        const quiver = mesh(
+          new T.CylinderGeometry(0.12, 0.1, 0.7, 8),
+          dark,
+          this.body,
+          0.3,
+          1.08,
+          -0.34,
+        );
+        quiver.rotation.z = -0.2;
+        for (let i = 0; i < 3; i++)
+          mesh(
+            new T.CylinderGeometry(0.014, 0.014, 0.45, 5),
+            gold,
+            this.body,
+            0.25 + i * 0.05,
+            1.55,
+            -0.34,
+          );
+      }
+    }
     cloth.side = T.DoubleSide;
     const capeGeometry = new T.PlaneGeometry(0.64, 0.94, 4, 6),
       vertices = capeGeometry.getAttribute('position');
@@ -187,13 +241,42 @@ export class Warrior {
     center.scale.z = 1.25;
     mesh(new T.BoxGeometry(0.06, 0.36, 0.1), gold, shield, 0, 0, 0.11);
     mesh(new T.BoxGeometry(0.24, 0.055, 0.1), gold, shield, 0, 0.03, 0.11);
+    const bow = new T.Group();
+    this.bow = bow;
+    bow.position.set(-0.08, -0.4, 0.2);
+    this.leftArm.add(bow);
+    const curve = new T.CatmullRomCurve3([
+      new T.Vector3(0, -0.6, 0),
+      new T.Vector3(0, -0.3, 0.22),
+      new T.Vector3(0, 0, 0.3),
+      new T.Vector3(0, 0.3, 0.22),
+      new T.Vector3(0, 0.6, 0),
+    ]);
+    mesh(new T.TubeGeometry(curve, 20, 0.035, 6, false), gold, bow);
+    mesh(new T.CylinderGeometry(0.007, 0.007, 1.2, 4), eyes, bow);
+    const staff = new T.Group();
+    this.staff = staff;
+    staff.position.set(0, -0.45, 0.15);
+    this.rightArm.add(staff);
+    mesh(new T.CylinderGeometry(0.033, 0.04, 1.65, 8), dark, staff, 0, 0.15);
+    mesh(new T.TorusGeometry(0.18, 0.028, 6, 20), gold, staff, 0, 1.02);
+    const crystal = new T.MeshStandardMaterial({
+      color: 0xba8cff,
+      emissive: 0x9f5dff,
+      emissiveIntensity: 2.8,
+      roughness: 0.18,
+      metalness: 0.35,
+    });
+    mesh(new T.OctahedronGeometry(0.14), crystal, staff, 0, 1.02);
   }
-  equipment(weapon: string, shield: string) {
+  equipment(weapon: string, shield: string, cls = this.classId) {
     const key = weapon + '|' + shield;
     if (key === this.equipmentKey) return;
     this.equipmentKey = key;
-    if (this.sword) this.sword.visible = !!weapon;
-    if (this.shield) this.shield.visible = !!shield;
+    if (this.sword) this.sword.visible = !!weapon && cls === 'GUARDIAN';
+    if (this.shield) this.shield.visible = !!shield && cls === 'GUARDIAN';
+    if (this.bow) this.bow.visible = !!weapon && cls === 'AETHER_BLADE';
+    if (this.staff) this.staff.visible = !!weapon && cls === 'VOID_KNIGHT';
     if (this.bladeMat) {
       this.bladeMat.color.setHex(
         weapon.includes('steel') ? 0xc3dcec : weapon.includes('rough') ? 0x777b84 : 0x9fb2bf,
@@ -257,6 +340,7 @@ export class Warrior {
     this.leftKnee.rotation.x = -Math.max(0, wave) * 0.7;
     this.rightKnee.rotation.x = -Math.max(0, -wave) * 0.7;
     this.leftArm.rotation.x = -wave * 0.55;
+    this.leftArm.rotation.z = 0;
     this.rightArm.rotation.x = wave * 0.55 - 0.1;
     this.rightArm.rotation.z = -0.12;
     this.rightArm.rotation.y = 0;
@@ -286,6 +370,17 @@ export class Warrior {
         this.rightArm.rotation.z = -0.7 + Math.sin(t * Math.PI) * 1.8;
         this.rightArm.rotation.y = -1.2 + t * 2.6;
         this.leftArm.rotation.x = -0.45;
+      }
+      if (this.classId === 'AETHER_BLADE') {
+        this.leftArm.rotation.x = -1.25;
+        this.leftArm.rotation.z = -0.18;
+        this.rightArm.rotation.x = -1.1;
+        this.rightArm.rotation.y = -0.65;
+        this.rightArm.rotation.z = -0.25 - Math.sin(t * Math.PI) * 0.3;
+      } else if (this.classId === 'VOID_KNIGHT') {
+        this.rightArm.rotation.x = -0.55 - Math.sin(t * Math.PI) * 0.5;
+        this.rightArm.rotation.z = -0.25;
+        this.leftArm.rotation.x = -0.7;
       }
     }
   }

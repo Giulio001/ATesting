@@ -10,3 +10,9 @@ Verificato il 5 ottobre 2026.
 - Browser touch 390×844: ingresso, HUD, menu, zaino e joystick; spostamento verificato e nessun errore JavaScript nella prova finale.
 
 Screenshot reali del client, catturati con rendering software e modalità Leggera/Automatica. Non sono mockup. Questi controlli non misurano le prestazioni di un telefono fisico né verificano i sistemi ancora elencati come mancanti nel documento di parità.
+
+## Implementazione successiva: forgia, tre cammini e VFX
+
+Prima della richiesta di sospendere le prove: TypeScript e 14 test unitari superati sulla prima implementazione della forgia, inclusi costi, bonus, fallimento, riciclo, materiali, salvataggio e migrazione. Questo risultato precede le modifiche successive alle classi.
+
+Su richiesta dell’utente, non sono stati eseguiti ulteriori test, build, integrazione o prove browser per la versione con Guerriero, Arciere, Mago e nuovi effetti. Gli screenshot sopra appartengono alla versione precedente.

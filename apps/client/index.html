@@ -183,12 +183,14 @@
           Proteggi la porta sud dalle creature del Vuoto.<br />Una città, un giuramento. La tua
           prima avventura.
         </p>
-        <label for="name">NOME DEL GUARDIAN</label
-        ><input id="name" maxlength="18" placeholder="Viandante" autocomplete="off" /><button
-          id="enter"
-          disabled
-        >
-          Il mondo prende forma…</button
+        <label for="name">NOME DEL PERSONAGGIO</label
+        ><input id="name" maxlength="18" placeholder="Viandante" autocomplete="off" />
+        <label for="hero-class">SCEGLI IL CAMMINO</label>
+        <select id="hero-class">
+          <option value="GUARDIAN">Guerriero · spada e scudo</option>
+          <option value="AETHER_BLADE">Arciere · frecce e raffica</option>
+          <option value="VOID_KNIGHT">Mago · raggio, barriera e nova</option></select
+        ><button id="enter" disabled>Il mondo prende forma…</button
         ><small>Esperimento indipendente · Aetheria 2D resta online</small>
         <p id="error" role="alert"></p>
       </div>

@@ -9,6 +9,7 @@ export class PlayerState extends Schema {
   ack = 0;
   travelRevision = 0;
   name = 'Viandante';
+  heroClass = 'GUARDIAN';
   hp = 100;
   maxHp = 100;
   mana = 100;
@@ -44,6 +45,7 @@ defineTypes(PlayerState, {
   ack: 'uint32',
   travelRevision: 'uint32',
   name: 'string',
+  heroClass: 'string',
   hp: 'uint16',
   maxHp: 'uint16',
   mana: 'float32',

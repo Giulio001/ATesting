@@ -80,13 +80,24 @@ export class Game {
       if (open) this.hud.closeDialogue();
       this.input.setMenuOpen(open || this.panels.isOpen || this.hud.dialogueOpen);
     };
-    this.network.onRPG = (s) => this.panels.update(s);
+    this.network.onRPG = (s) => {
+      this.panels.update(s);
+      (document.getElementById('hero-class') as HTMLSelectElement).value = s.heroClass;
+      try {
+        localStorage.setItem('aetheria3d.class', s.heroClass);
+      } catch {}
+    };
     this.network.onChat = (e) => this.panels.chat(e);
     this.network.onNotice = (text) => this.hud.toast(text);
-    this.network.onService = (e) => this.panels.open(e.service === 'shop' ? 'shop' : 'clan');
+    this.network.onService = (e) => this.panels.open(e.service);
     this.network.onGuard = (e) => {
       this.warriors.get(e.playerId)?.guard();
-      this.vfx.guard(e.x, e.z);
+      this.vfx.guard(
+        e.x,
+        e.z,
+        this.network.room?.state.players.get(e.playerId)?.heroClass,
+        e.playerId,
+      );
     };
     this.input.onEscape = () => this.hud.closeDialogue();
     this.hud.onCloseDialogue = () => this.input.setMenuOpen(this.panels.isOpen);
@@ -141,6 +152,7 @@ export class Game {
         hero: this.network.room?.state?.players?.get(this.network.id)
           ? {
               hp: this.network.room.state.players.get(this.network.id)!.hp,
+              heroClass: this.network.room.state.players.get(this.network.id)!.heroClass,
               questState: this.network.room.state.players.get(this.network.id)!.questState,
               gold: this.network.room.state.players.get(this.network.id)!.gold,
               level: this.network.room.state.players.get(this.network.id)!.level,
@@ -174,6 +186,9 @@ export class Game {
     try {
       const name = localStorage.getItem('aetheria3d.name');
       if (name) (document.getElementById('name') as HTMLInputElement).value = name;
+      const cls = localStorage.getItem('aetheria3d.class');
+      if (cls && ['GUARDIAN', 'AETHER_BLADE', 'VOID_KNIGHT'].includes(cls))
+        (document.getElementById('hero-class') as HTMLSelectElement).value = cls;
     } catch {}
     this.hud.ready();
   }
@@ -192,7 +207,10 @@ export class Game {
       this.lastAck = -1;
       const name =
         (document.getElementById('name') as HTMLInputElement).value.trim() || 'Viandante';
-      await this.network.connect(name);
+      await this.network.connect(
+        name,
+        (document.getElementById('hero-class') as HTMLSelectElement).value,
+      );
       const p = this.network.room!.state.players.get(this.network.id)!;
       this.localPhysics = this.physics.createPlayer(p.x, p.z);
       this.position.set(p.x, p.y - PLAYER_HEIGHT, p.z);
@@ -219,6 +237,7 @@ export class Game {
     }
   }
   private cleanupPlayers() {
+    this.vfx.clear();
     for (const w of this.warriors.values()) w.dispose();
     this.warriors.clear();
     for (const e of this.enemies.values()) e.dispose();
@@ -255,7 +274,7 @@ export class Game {
     }
   }
   private combat(e: CombatEvent) {
-    this.warriors.get(e.playerId)?.attack(e.kind, e.yaw);
+    if (!e.impactOnly) this.warriors.get(e.playerId)?.attack(e.kind, e.yaw);
     this.vfx.combat(e);
     for (const hit of e.hits) this.enemies.get(hit.targetId)?.hit();
     this.hud.combat(e, this.network.id, this.camera.camera);
@@ -290,8 +309,9 @@ export class Game {
     if (this.connected && state) {
       state.players.forEach((p, id) => {
         let w = this.warriors.get(id);
-        if (!w) {
-          w = new Warrior(this.assets, id === this.network.id);
+        if (!w || w.classId !== p.heroClass) {
+          w?.dispose();
+          w = new Warrior(this.assets, id === this.network.id, p.heroClass);
           w.root.position.set(p.x, p.y - PLAYER_HEIGHT, p.z);
           this.world.scene.add(w.root);
           this.warriors.set(id, w);
@@ -304,7 +324,8 @@ export class Game {
             new T.Vector3(p.x, p.y - PLAYER_HEIGHT, p.z),
             1 - Math.exp(-dt * 12),
           );
-        w.equipment(p.weaponIcon, p.shieldIcon);
+        w.equipment(p.weaponIcon, p.shieldIcon, p.heroClass);
+        this.vfx.moveGuard(id, p.x, p.z);
         w.update(
           dt,
           local && input ? Math.hypot(input.x, input.z) > 0.01 : p.moving,

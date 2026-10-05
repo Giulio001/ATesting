@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { starterKit, type Item, type EquipmentSlot } from '@aetheria/shared';
+import {
+  starterKit,
+  heroClass,
+  type HeroClass,
+  type Item,
+  type EquipmentSlot,
+} from '@aetheria/shared';
 export interface Profile {
   id: string;
   token: string;
@@ -9,6 +15,8 @@ export interface Profile {
   level: number;
   xp: number;
   gold: number;
+  aetherDust: number;
+  heroClass: HeroClass;
   questState: number;
   questKills: number;
   kills: number;
@@ -38,10 +46,14 @@ export class Repository {
       if (d.version !== 1 || !d.profiles || !d.clans)
         throw new Error('Unsupported ATesting save file');
       Object.assign(this.profiles, d.profiles);
+      for (const profile of Object.values(this.profiles)) {
+        profile.aetherDust ??= 0;
+        profile.heroClass = heroClass(profile.heroClass);
+      }
       Object.assign(this.clans, d.clans);
     }
   }
-  open(token: unknown, name: string) {
+  open(token: unknown, name: string, selectedClass?: unknown) {
     let p =
       typeof token === 'string' && token.length === 36
         ? Object.values(this.profiles).find((p) => p.token === token)
@@ -54,17 +66,24 @@ export class Repository {
         level: 1,
         xp: 0,
         gold: 0,
+        aetherDust: 0,
+        heroClass: heroClass(selectedClass),
         questState: 0,
         questKills: 0,
         kills: 0,
         potions: 3,
         manaPotions: 2,
-        items: starterKit(),
+        items: starterKit(selectedClass),
         equipment: {
           HEAD: 'traveller-cap',
           ARMOR: 'recruit-armor',
-          WEAPON: 'starter-sword',
-          OFFHAND: 'wood-shield',
+          WEAPON:
+            heroClass(selectedClass) === 'AETHER_BLADE'
+              ? 'starter-bow'
+              : heroClass(selectedClass) === 'VOID_KNIGHT'
+                ? 'starter-catalyst'
+                : 'starter-sword',
+          ...(heroClass(selectedClass) === 'GUARDIAN' ? { OFFHAND: 'wood-shield' } : {}),
         },
         clanId: '',
       };

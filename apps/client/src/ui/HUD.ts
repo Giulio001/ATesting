@@ -9,6 +9,10 @@ import {
   BATTLE_START,
   canInteract,
   xpRequired,
+  CLASS_NAMES,
+  heroClass,
+  classAbilities,
+  itemIconUrl,
   type CombatEvent,
   type DamageEvent,
   type RewardEvent,
@@ -119,7 +123,7 @@ export class HUD {
         camera,
         e.kind === 'skill' ? 'skill' : '',
       );
-    if (e.playerId === localId && !e.hit)
+    if (e.playerId === localId && !e.hit && !e.projectile && e.heroClass !== 'VOID_KNIGHT')
       this.toast(
         'Avvicinati e rivolgi la lama verso il bersaglio. Le creature si affrontano oltre la porta sud.',
       );
@@ -172,7 +176,41 @@ export class HUD {
         ? 'Zona ostile · schiva i cerchi rossi'
         : 'Lumengate · rigenerazione attiva';
       $('player-status').classList.toggle('danger', danger);
-      $('player-level').textContent = `GUARDIAN · LIVELLO ${p.level}`;
+      $('player-level').textContent =
+        `${CLASS_NAMES[heroClass(p.heroClass)].toUpperCase()} · LIVELLO ${p.level}`;
+      const abilities = classAbilities(p.heroClass);
+      for (const [button, ability] of [
+        ['aether', abilities.SLASH],
+        ['guard', abilities.GUARD],
+        ['skill', abilities.BURST],
+      ] as const) {
+        const labels = p.heroClass === 'VOID_KNIGHT'
+          ? { aether: 'Raggio', guard: 'Barriera', skill: 'Nova' }
+          : p.heroClass === 'AETHER_BLADE'
+            ? { aether: 'Freccia', guard: 'Guardia', skill: 'Raffica' }
+            : { aether: 'Taglio', guard: 'Guardia', skill: 'Impulso' };
+        $(button).querySelector('b')!.textContent = labels[button];
+        $(button).title = `${ability.name} · ${ability.key}`;
+        const image = $(button).querySelector('img')!;
+        const source = itemIconUrl(ability.icon);
+        if (image.getAttribute('src') !== source) image.setAttribute('src', source);
+      }
+      $('attack').querySelector('b')!.textContent =
+        p.heroClass === 'AETHER_BLADE'
+          ? 'Freccia'
+          : p.heroClass === 'VOID_KNIGHT'
+            ? 'Dardo'
+            : 'Fendente';
+      const attackImage = $('attack').querySelector('img')!;
+      const attackSource = itemIconUrl(
+        p.heroClass === 'AETHER_BLADE'
+          ? 'bow_reinforced'
+          : p.heroClass === 'VOID_KNIGHT'
+            ? 'scepter_oak'
+            : 'sword_aether',
+      );
+      if (attackImage.getAttribute('src') !== attackSource)
+        attackImage.setAttribute('src', attackSource);
       document.querySelector<HTMLElement>('.health>span')!.style.width =
         `${(p.hp / p.maxHp) * 100}%`;
       document.querySelector('.health>small')!.textContent = `${p.hp} / ${p.maxHp}`;
@@ -188,7 +226,10 @@ export class HUD {
       this.cooldown('guard-cooldown', p.guardReadyAt, serverNow);
       this.cooldown('mana-potion-cooldown', p.manaPotionUntil, serverNow);
       $('aether').classList.toggle('unavailable', p.mana < 18);
-      $('guard').classList.toggle('unavailable', p.mana < 12 || p.stamina < 30);
+      $('guard').classList.toggle(
+        'unavailable',
+        p.mana < abilities.GUARD.cost || (p.heroClass !== 'VOID_KNIGHT' && p.stamina < 30),
+      );
       $('mana-potion').classList.toggle('unavailable', p.manaPotions === 0 || p.mana >= 100);
       $('potion-count').textContent = `Cura · ${p.potions}`;
       this.cooldown('cooldown', p.skillUntil, serverNow);
@@ -199,7 +240,13 @@ export class HUD {
       $('interact').classList.toggle('nearby', !!nearby);
       $('hotbar').classList.toggle('near-npc', !!nearby);
       $('interact').querySelector('b')!.textContent =
-        nearby?.service === 'shop' ? 'Negozia' : nearby?.service === 'clan' ? 'Clan' : 'Parla';
+        nearby?.service === 'shop'
+          ? 'Negozia'
+          : nearby?.service === 'clan'
+            ? 'Clan'
+            : nearby?.service === 'forge'
+              ? 'Forgia'
+              : 'Parla';
       $('death').classList.toggle('hidden', p.hp > 0);
       if (p.hp === 0)
         $('death-count').textContent = String(

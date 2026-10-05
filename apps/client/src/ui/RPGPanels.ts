@@ -3,10 +3,21 @@ import {
   SLOT_NAMES,
   BAG_PAGE_SIZE,
   BAG_CAPACITY,
-  ABILITIES,
   SHOP_ITEMS,
   CLAN_CREATION_COST,
   itemIconUrl,
+  itemStats,
+  protectedStarterItem,
+  FORGE_MAX_UPGRADE,
+  forgeUpgradeCost,
+  forgeSalvageValue,
+  forgeUpgradeMaterials,
+  countMaterial,
+  nearbyNpc,
+  CLASS_NAMES,
+  HERO_CLASSES,
+  heroClass,
+  classAbilities,
   type RPGSnapshot,
   type Item,
   type ChatMessage,
@@ -37,6 +48,7 @@ export class RPGPanels {
   private panel = '';
   private page = 0;
   private selected = '';
+  private salvageConfirmation = '';
   private messages: ChatMessage[] = [];
   private channel: 'GLOBAL' | 'GUILD' = 'GLOBAL';
   private root = document.getElementById('rpg-overlay')!;
@@ -135,11 +147,13 @@ export class RPGPanels {
   }
   update(snapshot: RPGSnapshot) {
     this.snapshot = snapshot;
+    this.salvageConfirmation = '';
     if (this.isOpen) this.render();
   }
   open(panel: string) {
     if (!document.body.classList.contains('playing')) return;
     this.panel = panel;
+    this.salvageConfirmation = '';
     this.root.classList.remove('hidden');
     this.render();
     this.onMenuChanged(true);
@@ -159,6 +173,7 @@ export class RPGPanels {
       character: 'PERSONAGGIO',
       menu: 'MENU',
       shop: 'QUARTIERMASTRO',
+      forge: 'FORGIA',
       map: 'MINIMAPPA',
       settings: 'OPZIONI',
     };
@@ -171,6 +186,7 @@ export class RPGPanels {
     else if (this.panel === 'quests') this.quests();
     else if (this.panel === 'character') this.character();
     else if (this.panel === 'shop') this.shop();
+    else if (this.panel === 'forge') this.forge();
     else if (this.panel === 'map') this.map();
     else if (this.panel === 'settings') this.settings();
     else this.menu();
@@ -179,7 +195,7 @@ export class RPGPanels {
     return `<img src="${itemIconUrl(item.icon)}" alt="${esc(item.name)}" draggable="false">`;
   }
   private itemSlot(item: Item | undefined, label = '', equipment = false) {
-    return `<button class="item-slot ${item?.rarity.toLowerCase() ?? 'empty'} ${item?.id === this.selected ? 'selected' : ''}" ${item ? `data-item="${esc(item.id)}"` : ''} title="${esc(item?.name ?? label)}">${item ? this.icon(item) : `<span>${esc(label)}</span>`}${item && item.quantity > 1 ? `<b>${item.quantity}</b>` : ''}${equipment && item ? '<small>INDOSSATO</small>' : ''}</button>`;
+    return `<button class="item-slot ${item?.rarity.toLowerCase() ?? 'empty'} ${item?.id === this.selected ? 'selected' : ''}" ${item ? `data-item="${esc(item.id)}"` : ''} title="${esc(item?.name ?? label)}">${item ? this.icon(item) : `<span>${esc(label)}</span>`}${item && item.quantity > 1 ? `<b>${item.quantity}</b>` : ''}${item?.upgradeLevel ? `<b class="upgrade-badge">+${item.upgradeLevel}</b>` : ''}${equipment && item ? '<small>INDOSSATO</small>' : ''}</button>`;
   }
   private inventory() {
     const s = this.snapshot;
@@ -192,7 +208,7 @@ export class RPGPanels {
     const slots = Array.from({ length: BAG_PAGE_SIZE }, (_, n) =>
       this.itemSlot(s.items[this.page * BAG_PAGE_SIZE + n]),
     ).join('');
-    this.content.innerHTML = `<div class="inventory-layout"><section class="equipment-section"><h3>EQUIPAGGIATO</h3><div class="paper-doll"><div class="paper-doll-crest">♜<small>GUARDIAN</small></div><div class="equipment-grid">${EQUIPMENT_SLOTS.map(
+    this.content.innerHTML = `<div class="inventory-layout"><section class="equipment-section"><h3>EQUIPAGGIATO</h3><div class="paper-doll"><div class="paper-doll-crest">♜<small>${CLASS_NAMES[heroClass(s.heroClass)].toUpperCase()}</small></div><div class="equipment-grid">${EQUIPMENT_SLOTS.map(
       (slot) =>
         `<div><label>${SLOT_NAMES[slot]}</label>${this.itemSlot(
           s.items.find((i) => i.id === s.equipment[slot]),
@@ -203,8 +219,8 @@ export class RPGPanels {
       '',
     )}</div></div></section><section class="bag-section"><h3>SACCA <small>${s.items.length} / ${BAG_CAPACITY}</small></h3><div class="bag-grid">${slots}</div><div class="bag-pager"><button data-page="-1" aria-label="Pagina precedente">‹</button><span>${this.page + 1} / 3</span><button data-page="1" aria-label="Pagina successiva">›</button></div></section></div><aside class="item-details">${
       selected
-        ? `<div>${this.icon(selected)}<div><h3 class="${selected.rarity.toLowerCase()}">${esc(selected.name)}</h3><small>${esc(selected.rarity)} · LIVELLO ${selected.level} · ${esc(selected.kind)}</small></div></div><p>${esc(selected.description)}</p><ul>${Object.entries(
-            selected.stats,
+        ? `<div>${this.icon(selected)}<div><h3 class="${selected.rarity.toLowerCase()}">${esc(selected.name)}${selected.upgradeLevel ? ` +${selected.upgradeLevel}` : ''}</h3><small>${esc(selected.rarity)} · LIVELLO ${selected.level} · ${esc(selected.kind)}</small></div></div><p>${esc(selected.description)}</p><ul>${Object.entries(
+            itemStats(selected),
           )
             .map(([k, v]) => `<li>${statName[k] ?? esc(k)} <b>+${v}</b></li>`)
             .join(
@@ -215,8 +231,8 @@ export class RPGPanels {
   }
   private skills() {
     const p = this.player();
-    this.content.innerHTML = `<p class="panel-intro">Il cammino del Guardian · le stesse tre abilità di Aetheria. Premi Q / R / F o usa la barra rapida.</p><div class="skill-cards">${Object.entries(
-      ABILITIES,
+    this.content.innerHTML = `<p class="panel-intro">Il cammino del ${CLASS_NAMES[heroClass(p?.heroClass)]}. Premi Q / R / F o usa la barra rapida.</p><div class="skill-cards">${Object.entries(
+      classAbilities(p?.heroClass),
     )
       .map(
         ([id, a]) =>
@@ -239,10 +255,50 @@ export class RPGPanels {
   }
   private character() {
     const p = this.player();
-    this.content.innerHTML = `<div class="character-summary"><div class="paper-doll-crest">♜</div><h3>${esc(p?.name ?? 'Guardian')}</h3><p>GUARDIAN · LIVELLO ${p?.level ?? 1}</p>${p?.clanName ? `<p>Clan: ${esc(p.clanName)}</p>` : ''}</div><div class="stat-grid"><p>Vita <b>${p?.hp ?? 100} / ${p?.maxHp ?? 100}</b></p><p>Mana <b>${Math.floor(p?.mana ?? 100)} / 100</b></p><p>Attacco arma <b>+${p?.attackBonus ?? 0}</b></p><p>Difesa equipaggiamento <b>${p?.defence ?? 0}</b></p><p>Oro <b>${p?.gold ?? 0}</b></p><p>Creature sconfitte <b>${p?.kills ?? 0}</b></p></div><button data-open-panel="inventory">Apri equipaggiamento →</button>`;
+    this.content.innerHTML = `<div class="character-summary"><div class="paper-doll-crest">♜</div><h3>${esc(p?.name ?? 'Viandante')}</h3><p>${CLASS_NAMES[heroClass(p?.heroClass)].toUpperCase()} · LIVELLO ${p?.level ?? 1}</p>${p?.clanName ? `<p>Clan: ${esc(p.clanName)}</p>` : ''}</div><div class="stat-grid"><p>Vita <b>${p?.hp ?? 100} / ${p?.maxHp ?? 100}</b></p><p>Mana <b>${Math.floor(p?.mana ?? 100)} / 100</b></p><p>Attacco arma <b>+${p?.attackBonus ?? 0}</b></p><p>Difesa equipaggiamento <b>${p?.defence ?? 0}</b></p><p>Oro <b>${p?.gold ?? 0}</b></p><p>Creature sconfitte <b>${p?.kills ?? 0}</b></p></div><button data-open-panel="inventory">Apri equipaggiamento →</button><p>Puoi cambiare cammino in città. I progressi e gli oggetti vengono conservati.</p><div class="class-choices">${HERO_CLASSES.map((cls) => `<button data-class="${cls}" ${p?.heroClass === cls || !p || p.hp <= 0 || p.z >= 10 ? 'disabled' : ''}>${CLASS_NAMES[cls]}</button>`).join('')}</div>`;
   }
   private shop() {
     this.content.innerHTML = `<p class="panel-intro">Equipaggiamento e provviste di Lumengate. Oro: ${this.player()?.gold ?? 0}. Gli acquisti richiedono la vicinanza al Quartiermastro.</p><div class="shop-list">${SHOP_ITEMS.map((item) => `<article>${this.icon(item)}<div><h3>${esc(item.name)}</h3><p>${esc(item.description)}</p></div><button data-buy="${item.id}">${item.price} ORO</button></article>`).join('')}</div>`;
+  }
+  private forge() {
+    const s = this.snapshot,
+      p = this.player();
+    if (!s) {
+      this.content.textContent = 'Caricamento della forgia…';
+      return;
+    }
+    const gear = s.items.filter((item) => EQUIPMENT_SLOTS.includes(item.kind as never));
+    const item = gear.find((item) => item.id === this.selected);
+    const near = !!p && p.hp > 0 && nearbyNpc(p.x, p.z)?.id === 'blacksmith';
+    let details =
+      '<p>Seleziona un oggetto per vedere costi e bonus del prossimo potenziamento.</p>';
+    if (item) {
+      const level = item.upgradeLevel ?? 0,
+        max = level >= FORGE_MAX_UPGRADE;
+      const cost = forgeUpgradeCost(level + 1, item.rarity);
+      const needs = max ? [] : forgeUpgradeMaterials(level + 1, item.rarity, item.level);
+      const current = itemStats(item),
+        next = itemStats({ ...item, upgradeLevel: level + 1 });
+      const canUpgrade =
+        near &&
+        !max &&
+        (p?.gold ?? 0) >= cost.goldCost &&
+        s.aetherDust >= cost.dustCost &&
+        needs.every((need) => countMaterial(s.items, need.id) >= need.quantity);
+      const equipped = Object.values(s.equipment).includes(item.id),
+        protectedItem = protectedStarterItem(item);
+      details = `<h3>${esc(item.name)} +${level}</h3><p>${equipped ? 'Indossato · ' : ''}${esc(item.rarity)}</p><table class="forge-stats"><thead><tr><th>Bonus</th><th>Ora</th>${max ? '' : `<th>A +${level + 1}</th>`}</tr></thead><tbody>${Object.entries(
+        current,
+      )
+        .map(
+          ([key, value]) =>
+            `<tr><td>${statName[key] ?? esc(key)}</td><td>+${value}</td>${max ? '' : `<td>+${next[key]}</td>`}</tr>`,
+        )
+        .join(
+          '',
+        )}</tbody></table>${max ? '<p>Limite +9 raggiunto.</p>' : `<p>Prossimo gradino: <b>+${level + 1}</b> · riuscita <b>${Math.round(cost.chance * 100)}%</b></p><p>${cost.goldCost} oro · ${cost.dustCost} Polvere d’Aether</p>${needs.length ? `<ul>${needs.map((need) => `<li>${esc(need.name)}: ${countMaterial(s.items, need.id)} / ${need.quantity}</li>`).join('')}</ul>` : ''}<p>${cost.chance < 1 ? 'Il fallimento consuma oro, polvere e materiali. L’oggetto e il suo gradino restano intatti.' : 'Potenziamento garantito.'}</p><button class="gold-button" data-upgrade="${esc(item.id)}" ${canUpgrade ? '' : 'disabled'}>Potenzia a +${level + 1}</button>`}<div class="forge-salvage">${protectedItem ? '<p>Kit iniziale protetto dal riciclo.</p>' : equipped ? '<p>Rimuovi questo oggetto prima di riciclarlo.</p>' : `<p>Riciclo: +${forgeSalvageValue(item.rarity, level)} Polvere d’Aether. L’oggetto viene distrutto.</p><button data-salvage="${esc(item.id)}" ${near ? '' : 'disabled'}>${this.salvageConfirmation === item.id ? 'Conferma distruzione e riciclo' : 'Ricicla oggetto'}</button>${this.salvageConfirmation === item.id ? '<button data-cancel-salvage>Annulla</button>' : ''}`}</div>`;
+    }
+    this.content.innerHTML = `<p class="panel-intro">Fabbro di Lumengate · Oro: ${p?.gold ?? 0} · Polvere d’Aether: ${s.aetherDust}. ${near ? 'Scegli un oggetto per lavorarlo.' : 'Avvicinati al Fabbro, a ovest della fontana.'}</p><div class="forge-layout"><section><h3>EQUIPAGGIAMENTO</h3><div class="forge-gear">${gear.map((item) => this.itemSlot(item, '', Object.values(s.equipment).includes(item.id))).join('')}</div></section><section class="forge-details" aria-live="polite">${details}</section></div><p>Le creature lasciano polvere e possono lasciare materiali della Frontiera, richiesti dal +5.</p>`;
   }
   private clan() {
     const s = this.snapshot,
@@ -258,6 +314,7 @@ export class RPGPanels {
       ['clan', 'Clan', '3'],
       ['quests', 'Missioni', '4'],
       ['skills', 'Abilità', '5'],
+      ['forge', 'Forgia', '2'],
       ['map', 'Minimappa', '10'],
       ['settings', 'Opzioni', '9'],
     ];
@@ -278,8 +335,10 @@ export class RPGPanels {
     if (!b) return;
     const d = b.dataset;
     if (d.openPanel) this.open(d.openPanel);
+    else if (d.class) this.onSend('class', d.class);
     else if (d.item) {
       this.selected = d.item;
+      this.salvageConfirmation = '';
       this.render();
     } else if (d.equip) this.onSend('inventory', { action: 'equip', id: d.equip });
     else if (d.unequip) this.onSend('inventory', { action: 'unequip', slot: d.unequip });
@@ -290,7 +349,19 @@ export class RPGPanels {
       this.close();
       this.onAbility(d.cast as AbilityId);
     } else if (d.buy) this.onSend('buy', d.buy);
-    else if ('createClan' in d)
+    else if (d.upgrade) this.onSend('forge', { action: 'upgrade', id: d.upgrade });
+    else if (d.salvage) {
+      if (this.salvageConfirmation === d.salvage) {
+        this.salvageConfirmation = '';
+        this.onSend('forge', { action: 'salvage', id: d.salvage });
+      } else {
+        this.salvageConfirmation = d.salvage;
+        this.render();
+      }
+    } else if ('cancelSalvage' in d) {
+      this.salvageConfirmation = '';
+      this.render();
+    } else if ('createClan' in d)
       this.onSend('clan', {
         action: 'create',
         name: (document.getElementById('clan-name') as HTMLInputElement).value,

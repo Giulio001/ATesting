@@ -36,7 +36,7 @@ npm run dev
 
 ## Giocare
 
-Inserisci il nome del Guardian ed entra a Lumengate. **Il movimento è sempre corsa**, anche sul joystick: non serve Shift e non esiste una modalità camminata.
+Inserisci il nome, scegli **Guerriero, Arciere o Mago** ed entra a Lumengate. Il cammino è salvato insieme al personaggio; puoi cambiarlo dal pannello Personaggio mentre sei in città, conservando progressi e oggetti. **Il movimento è sempre corsa**, anche sul joystick: non serve Shift e non esiste una modalità camminata.
 
 | Azione          | Desktop                                    | Mobile                  |
 | --------------- | ------------------------------------------ | ----------------------- |
@@ -75,6 +75,24 @@ La città è sicura: rigenera HP e il custode cura/rifornisce. Le creature resta
 Lo zaino riprende la capacità originale: **72 oggetti, tre pagine da 24**, con gli otto slot **testa, collo, corpo, arma, scudo, anello, piedi, compagno**. Seleziona un oggetto per vedere i bonus; doppio clic o **Equipaggia** per indossarlo. La × sullo slot lo rimuove. Bonus di vita, attacco e difesa vengono applicati dal server. Rimuovere l'arma impedisce di attaccare.
 
 Il **Quartiermastro**, al banco a ovest della fontana, vende pozioni, una spada e stivali. Gli acquisti sono possibili solo vicino all'NPC e solo se hai abbastanza oro. Il catalogo, i nomi, le rarità, le regole di classe e i valori intrinseci dell'equipaggiamento sono portati dal progetto originale; questa zona rende ottenibile un primo sottoinsieme di oggetti.
+
+### Tre cammini e combattimento
+
+- **Guerriero (Guardian)**: spada e scudo, fendenti in mischia, Taglio d’Aether, Guardia e Impulso Void.
+- **Arciere (Aether Ranger)**: arco, frecce con movimento e collisioni gestiti dal server, Freccia d’Aether e raffica di tre frecce. Ogni freccia della raffica infligge il 55% del danno base.
+- **Mago (Void Mage)**: scettro, dardi arcani, raggio che trapassa i bersagli in linea e nova a 4,2 metri davanti al personaggio. La barriera costa 22 mana e non consuma vigore.
+
+Q / R / F mantengono gli stessi posti nella barra rapida; nomi, icone e pannello abilità seguono il cammino scelto. Le restrizioni di armi e scudi vengono applicate dal server. Il negozio vende anche arco e bastone; il Custode lascia un’arma rara del cammino attuale.
+
+Gli effetti hanno colori distinti: oro per le lame, verde etereo per le frecce, viola per la magia. Scie, scintille, raggio a più strati, nova e barriera usano bagliori e luci temporanee. La barriera segue chi la lancia. La modalità Alta/Automatica desktop usa bloom; Leggera riduce i passaggi grafici. I modelli delle tre classi sono ancora procedurali provvisori, con arco/faretra, spada/scudo e scettro/vesti distinguibili.
+
+### Forgia
+
+Il **Fabbro**, a ovest della fontana, apre la forgia con E o il pulsante Forgia. Puoi aprire l’anteprima anche da Menu → Forgia, ma le operazioni richiedono la vicinanza al Fabbro.
+
+Le creature lasciano Polvere d’Aether (1 per scheggia, 4 per Custode) e possono lasciare materiali della Frontiera. Il pannello mostra i bonus attuali, quelli del prossimo gradino, oro, polvere, materiali e probabilità. Il potenziamento arriva a **+9**: fino al +5 è garantito; dal +6 le probabilità originali sono 85%, 55%, 40% e 30%. Dal +5 servono anche materiali. Un fallimento consuma risorse e conserva l’oggetto e il suo gradino.
+
+Puoi riciclare equipaggiamento non indossato per recuperare polvere: il pannello chiede una seconda conferma prima di distruggerlo. Il kit iniziale è protetto. Costi, crescita delle statistiche intrinseche e valore del riciclo provengono dal gioco originale. La riforgiatura degli affissi resta da portare.
 
 ### Abilità del Guardian
 
@@ -158,4 +176,4 @@ Endpoint di stato: `http://127.0.0.1:2588/health`.
 
 ## Porting successivo
 
-La destinazione resta **Aetheria con rendering 3D**. Mancano ancora le altre classi, i modelli definitivi, il mondo completo, la campagna originale, gli altri NPC, talenti, forgia, compagni, party, commercio/aste, dungeon, Tower, PvP, castelli/attività clan e autenticazione completa. Il documento di parità distingue quanto è già funzionante dai sistemi da portare: nessun pannello vuoto viene presentato come un sistema completo.
+La destinazione resta **Aetheria con rendering 3D**. Mancano ancora i talenti e la progressione completa dei cammini, i modelli definitivi, il mondo completo, la campagna originale, gli altri NPC, talenti, riforgiatura degli affissi, compagni, party, commercio/aste, dungeon, Tower, PvP, castelli/attività clan e autenticazione completa. Il documento di parità distingue quanto è già funzionante dai sistemi da portare: nessun pannello vuoto viene presentato come un sistema completo.

@@ -1074,3 +1074,24 @@ footer i {
     display: none;
   }
 }
+
+.entry-card select {
+  display: block;
+  width: 100%;
+  border: 1px solid #70847e66;
+  background: #09171f;
+  padding: 12px;
+  color: #eceddc;
+  border-radius: 3px;
+}
+.entry-card select:focus {
+  outline: 1px solid var(--gold);
+}
+.class-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.class-choices button:disabled {
+  opacity: 0.5;
+}

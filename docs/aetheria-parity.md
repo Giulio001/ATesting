@@ -21,9 +21,11 @@ I file in `packages/shared/src/aetheria/` provengono dai corrispondenti file di 
 - `gearStats.ts`: valori intrinseci e statistiche del kit.
 - `itemCatalog.ts`: kit, famiglie, rarità e materiali.
 - `petFood.ts`: catalogo alimenti dei compagni, utilizzato dal catalogo; il gameplay dei compagni resta da portare.
+- `forge.ts`: costi, probabilità e riciclo estratti dall’indice originale.
+- `forgeMaterials.ts`: ricette, quantità, terre e tabelle dei materiali; il riconoscimento delle icone accetta anche le chiavi corte di ATesting.
 - `progression.ts`: curva EXP estratta dall'index originale.
 
-Le 19 immagini in `apps/client/public/assets/aetheria/ui/` sono le icone originali di kit, attacchi, pozioni, materiali, primi drop, valute e menu. Le altre icone del catalogo saranno trasferite quando saranno ottenibili i corrispondenti oggetti. I font sono forniti da Fontsource con i relativi pacchetti e licenze.
+Le 28 immagini in `apps/client/public/assets/aetheria/ui/` sono le icone originali di kit, attacchi, pozioni, materiali, primi drop, valute e menu. Le altre icone del catalogo saranno trasferite quando saranno ottenibili i corrispondenti oggetti. I font sono forniti da Fontsource con i relativi pacchetti e licenze.
 
 Il riferimento visuale è `design_handoff_hud_restyle/README.md`; non viene importato il renderer Phaser o il server monolitico 2D. Il renderer e le collisioni del mondo sono Three.js e Rapier, mentre i sistemi vengono collegati al nuovo server Colyseus.
 
@@ -33,13 +35,19 @@ Il riferimento visuale è `design_handoff_hud_restyle/README.md`; non viene impo
 | ------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Movimento           | Corsa in 8 direzioni, collisioni, prediction, joystick                            | Mappe originali, navigazione su pendenze e scale                                   |
 | HUD                 | Impostazione/icone/font originali, pannelli funzionanti                           | Tutti gli elementi contestuali, party, target selezionato, effetti e hotbar estesa |
-| Combattimento       | Attacco base, tre abilità Guardian, vigore, mana, scudo, stun, HP/morte           | Combo/carica complete, talenti, altre classi, duelli/PvP                           |
-| Oggetti             | Kit, materiali, un drop raro, acquisti, equipaggiamento e bonus HP/attacco/difesa | Tutti i drop, affissi avanzati, set, forgia e confronto completo                   |
+| Combattimento       | Guerriero, Arciere e Mago, armi specifiche, proiettili con collisioni server, raggio/nova/barriera, vigore, mana, stun, HP/morte | Combo/carica complete, talenti, progressione completa dei cammini, duelli/PvP |
+| Oggetti             | Kit per cammino, drop raro per classe, negozio, bonus, potenziamento +9, riciclo e materiali della Frontiera | Tutti i drop, affissi avanzati, set, riforgiatura e confronto completo |
 | Missioni            | Prima missione giocabile e persistente, credito cooperativo, ricompensa unica     | Campagna e missioni originali, giornaliere, imprese                                |
-| NPC                 | Custode, Quartiermastro, Araldo, prossimità verificata                            | Tutti gli altri servizi, training, compagni e dialoghi                             |
+| NPC                 | Custode, Quartiermastro, Araldo, Fabbro, prossimità controllata dal server                            | Tutti gli altri servizi, training, compagni e dialoghi                             |
 | Clan                | Fondazione, richieste, membri/ruoli, tesoreria, chat, persistenza                 | Stemma personalizzato, castelli, spedizioni e guerra                               |
 | Multiplayer         | Room condivisa, interpolazione, server autoritativo                               | Party, amici, scambi, aste e spostamenti fra regioni                               |
 | Identità/salvataggi | Personaggio distinto per browser, salvataggio server separato                     | Account/password/recupero e scelta dei personaggi come nell'originale              |
-| Arte 3D             | Lumengate procedurale, materiali dipinti, VFX, Warrior articolato                 | GLB approvati per eroi/nemici/equipaggiamento e ricostruzione del mondo            |
+| Arte 3D             | Lumengate procedurale, materiali dipinti, VFX, tre eroi articolati con armi distinte e VFX luminosi                 | GLB approvati per eroi/nemici/equipaggiamento e ricostruzione del mondo            |
 
-Questa è la base del porting, con il primo ciclo RPG completo e verificabile. L'intero MMORPG originale non è ancora stato ricostruito.
+Questa è la base del porting, con il primo ciclo RPG, tre cammini e la prima forgia. Le modifiche ai cammini e ai nuovi VFX non sono state provate: le prove sono state sospese su richiesta dell’utente. L'intero MMORPG originale non è ancora stato ricostruito.
+
+## Forgia e classi: limiti di questa fase
+
+I prezzi e la crescita della forgia seguono l’originale. Lumengate rende disponibili solo i materiali della Frontiera; le altre regioni e la riforgiatura non sono ancora giocabili. Le probabilità dei materiali seguono le tabelle originali trash/elite e il moltiplicatore 0,96. Le dimensioni del raggio e della nova e la velocità/portata delle frecce sono convertite da pixel a metri (50 px/m); combo, talenti e bilanciamento completo del combattimento restano da portare. Il danno base conserva il bilanciamento della prima versione 3D.
+
+Il cambio cammino in città è una facilitazione di ATesting per usare le tre classi sullo stesso personaggio. Non rappresenta il sistema originale di account e selezione di più personaggi. Il kit di ogni cammino si ottiene una sola volta e occupa spazio nello zaino. I potenziamenti delle armi già ottenute vengono conservati.

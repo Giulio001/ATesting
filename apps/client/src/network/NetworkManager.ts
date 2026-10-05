@@ -29,7 +29,7 @@ export class NetworkManager {
   get id() {
     return this.room?.sessionId ?? '';
   }
-  async connect(name: string) {
+  async connect(name: string, heroClass = 'GUARDIAN') {
     const override = import.meta.env.VITE_SERVER_URL as string | undefined;
     const endpoint =
       override || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/multiplayer`;
@@ -38,7 +38,7 @@ export class NetworkManager {
     try {
       token = localStorage.getItem('aetheria3d.profile');
     } catch {}
-    this.room = await client.joinOrCreate<WorldState>('lumengate', { name, token });
+    this.room = await client.joinOrCreate<WorldState>('lumengate', { name, token, heroClass });
     this.room.onMessage('profile', (e: { token: string }) => {
       try {
         localStorage.setItem('aetheria3d.profile', e.token);

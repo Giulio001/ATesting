@@ -1500,3 +1500,54 @@
     top: 178px;
   }
 }
+
+.forge-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(250px, 1.5fr);
+  gap: 20px;
+}
+.forge-gear {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 8px;
+}
+.forge-details {
+  padding: 16px;
+  background: #141b20;
+  border: 1px solid #756549;
+}
+.forge-stats {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.forge-stats th,
+.forge-stats td {
+  padding: 6px;
+  border-bottom: 1px solid #394249;
+}
+.forge-salvage {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid #756549;
+}
+.forge-salvage button {
+  margin: 4px 8px 4px 0;
+}
+.forge-details button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.item-slot b.upgrade-badge {
+  left: 3px;
+  right: auto;
+  top: 2px;
+  bottom: auto;
+  color: #f4d48f;
+}
+@media (max-width: 600px) {
+  .forge-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
