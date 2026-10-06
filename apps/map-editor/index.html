@@ -1,23 +1,232 @@
 <!doctype html>
 <html lang="it">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aetheria · Atelier delle mappe</title></head>
-<body>
-<header><div class="brand"><span class="sigil">✦</span><div>AETHERIA<small>ATELIER DELLE MAPPE · PHASER 2D</small></div></div><div class="actions"><button id="new">Nuova</button><button id="load">Apri JSON</button><button id="save" class="accent">Esporta JSON</button><button id="test" class="play">▶ Prova mappa</button></div></header>
-<main>
-<aside class="left">
-<section><h2>Progetto</h2><label>Nome <input id="map-name" maxlength="100"></label><div class="row"><label>Colonne<input id="width" type="number" min="8" max="256" value="40"></label><label>Righe<input id="height" type="number" min="8" max="256" value="28"></label></div><label>Tile (px)<select id="tile-size"><option>16</option><option selected>32</option><option>48</option><option>64</option></select></label><button id="resize">Applica dimensioni</button></section>
-<section><h2>Strumenti</h2><div id="tools" class="tool-grid"></div><label>Dimensione pennello <select id="brush-size"><option value="1">1 × 1</option><option value="2">2 × 2</option><option value="3">3 × 3</option><option value="5">5 × 5</option></select></label></section>
-<section><h2>Livello attivo</h2><select id="layer"><option value="terrain">Terreno</option><option value="objects">Oggetti</option><option value="collisions">Collisioni</option><option value="markers">Gameplay</option></select><label><input type="checkbox" id="show-grid" checked> Griglia</label><label><input type="checkbox" id="show-collisions" checked> Collisioni</label><label><input type="checkbox" id="snap" checked> Aggancia alla griglia</label></section>
-<section><h2>Vista</h2><div class="row"><button id="undo">↶ Annulla</button><button id="redo">↷ Ripristina</button></div><button id="fit">Inquadra mappa</button><p class="hint">Rotellina: zoom · Spazio + trascina: sposta vista · Ctrl+Z: annulla · Canc: elimina · Ctrl+C/V: copia/incolla oggetto.</p></section>
-</aside>
-<div class="workspace"><div class="canvas-bar"><span id="mode-label">Terreno / Pennello</span><span id="zoom">100%</span></div><div id="canvas"></div><footer><span id="coords">X — · Y —</span><span id="status" role="status">Pronto</span></footer></div>
-<aside class="right">
-<section><h2>Biblioteca asset</h2><div class="row"><button id="import-png">+ PNG</button><button id="import-tiles">+ Tileset</button></div><p class="hint">PNG: oggetto con ombra incorporata. Tileset: tagliato in celle della dimensione tile corrente.</p><select id="asset-filter"><option value="all">Tutti gli asset</option><option value="terrain">Terreni</option><option value="object">Oggetti</option></select><div id="palette"></div></section>
-<section id="asset-properties"><h2>Asset selezionato</h2><p id="asset-title"></p><div class="row"><label>Larghezza<input id="asset-w" type="number" min="1" max="2048"></label><label>Altezza<input id="asset-h" type="number" min="1" max="2048"></label></div><div class="row"><label>Origine X<input id="origin-x" type="number" min="0" max="1" step="0.05"></label><label>Origine Y<input id="origin-y" type="number" min="0" max="1" step="0.05"></label></div><label><input id="asset-solid" type="checkbox"> Collisione predefinita</label><div class="row"><label>Offset X<input id="col-x" type="number"></label><label>Offset Y<input id="col-y" type="number"></label></div><div class="row"><label>Collisione W<input id="col-w" type="number" min="1" max="2048"></label><label>Collisione H<input id="col-h" type="number" min="1" max="2048"></label></div><button id="apply-asset">Applica asset</button><p class="hint">Origine e collisione seguono l’oggetto. La profondità usa il punto di appoggio Y. Modifiche applicate a tutte le istanze dell’asset.</p></section>
-<section><h2>Gameplay</h2><label>Tipo<select id="marker-type"><option value="spawn">Ingresso giocatore</option><option value="npc">NPC</option><option value="enemy">Nemico</option><option value="boss">Boss</option><option value="portal">Portale</option><option value="zone">Zona</option></select></label><label>Nome / ID<input id="marker-label" maxlength="100" placeholder="es. custode-lumengate"></label></section>
-<section><h2>Elemento selezionato</h2><p id="selection-info">Usa Seleziona e clicca un oggetto o punto gameplay.</p><div id="selection-fields" hidden><div class="row"><label>X<input id="item-x" type="number"></label><label>Y<input id="item-y" type="number"></label></div><label>Nome / destinazione<input id="item-label" maxlength="100"></label><button id="apply-item">Applica posizione</button><button id="delete-item">Elimina elemento</button></div></section>
-</aside>
-</main>
-<input hidden type="file" id="json-file" accept="application/json,.json"><input hidden type="file" id="png-file" accept="image/png" multiple>
-<script type="module" src="/src/main.js"></script>
-</body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Aetheria · Atelier delle mappe</title>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span class="sigil">✦</span>
+        <div>AETHERIA<small>ATELIER DELLE MAPPE · PHASER 2D</small></div>
+      </div>
+      <div class="actions">
+        <button id="new">Nuova</button><button id="load">Apri JSON</button
+        ><button id="save" class="accent">Esporta JSON</button
+        ><button id="test" class="play">▶ Prova mappa</button>
+      </div>
+    </header>
+    <main>
+      <aside class="left">
+        <section>
+          <h2>Progetto</h2>
+          <label>Nome <input id="map-name" maxlength="100" /></label>
+          <div class="row">
+            <label>Colonne<input id="width" type="number" min="8" max="256" value="40" /></label
+            ><label>Righe<input id="height" type="number" min="8" max="256" value="28" /></label>
+          </div>
+          <label
+            >Tile (px)<select id="tile-size">
+              <option>16</option>
+              <option selected>32</option>
+              <option>48</option>
+              <option>64</option>
+            </select></label
+          ><button id="resize">Applica dimensioni</button>
+        </section>
+        <section>
+          <h2>Strumenti</h2>
+          <div id="tools" class="tool-grid"></div>
+          <label
+            >Dimensione pennello
+            <select id="brush-size">
+              <option value="1">1 × 1</option>
+              <option value="2">2 × 2</option>
+              <option value="3">3 × 3</option>
+              <option value="5">5 × 5</option>
+            </select></label
+          >
+        </section>
+        <section>
+          <h2>Livello attivo</h2>
+          <select id="layer">
+            <option value="terrain">Terreno</option>
+            <option value="details">Dettagli</option>
+            <option value="buildings">Edifici</option>
+            <option value="objects">Oggetti</option>
+            <option value="overhead">Sopra il personaggio</option>
+            <option value="collisions">Collisioni</option>
+            <option value="markers">Gameplay</option>
+          </select>
+          <p class="hint">Livello · visibile · bloccato</p>
+          <div id="layer-controls"></div>
+          <label><input type="checkbox" id="show-grid" checked /> Griglia</label
+          ><label><input type="checkbox" id="show-collisions" checked /> Collisioni</label
+          ><label><input type="checkbox" id="snap" checked /> Aggancia alla griglia</label>
+        </section>
+        <section>
+          <h2>Revisione · <span id="review-state">Bozza</span></h2>
+          <div class="row">
+            <button id="review-check">Controlla</button><button id="approve">Approva</button>
+          </div>
+          <div id="review-results"></div>
+        </section>
+        <section>
+          <h2>Vista</h2>
+          <div class="row">
+            <button id="undo">↶ Annulla</button><button id="redo">↷ Ripristina</button>
+          </div>
+          <button id="fit">Inquadra mappa</button>
+          <p class="hint">
+            Rotellina: zoom · Spazio + trascina: sposta vista · Ctrl+Z: annulla · Canc: elimina ·
+            Ctrl+C/V: copia/incolla oggetto.
+          </p>
+        </section>
+      </aside>
+      <div class="workspace">
+        <div class="canvas-bar">
+          <span id="mode-label">Terreno / Pennello</span><span id="zoom">100%</span>
+        </div>
+        <div id="canvas"></div>
+        <footer>
+          <span id="coords">X — · Y —</span><span id="status" role="status">Pronto</span>
+        </footer>
+      </div>
+      <aside class="right">
+        <section>
+          <h2>Biblioteca asset</h2>
+          <div class="row">
+            <button id="import-png">+ PNG</button><button id="import-tiles">+ Tileset</button
+            ><button id="import-autotile">+ Autotile</button>
+          </div>
+          <p class="hint">
+            PNG: oggetto con ombra incorporata. Tileset: tagliato in celle della dimensione tile
+            corrente.
+          </p>
+          <select id="asset-filter">
+            <option value="all">Tutti gli asset</option>
+            <option value="terrain">Terreni</option>
+            <option value="object">Oggetti</option></select
+          ><button id="game-assets">Carica asset Aetheria</button>
+          <p class="hint">Autotile: foglio 4 × 4 ordinato per maschera N=1, E=2, S=4, O=8.</p>
+          <div id="palette"></div>
+        </section>
+        <section id="asset-properties">
+          <h2>Asset selezionato</h2>
+          <p id="asset-title"></p>
+          <div class="row">
+            <label>Larghezza<input id="asset-w" type="number" min="1" max="2048" /></label
+            ><label>Altezza<input id="asset-h" type="number" min="1" max="2048" /></label>
+          </div>
+          <div class="row">
+            <label>Origine X<input id="origin-x" type="number" min="0" max="1" step="0.05" /></label
+            ><label
+              >Origine Y<input id="origin-y" type="number" min="0" max="1" step="0.05"
+            /></label>
+          </div>
+          <label><input id="asset-solid" type="checkbox" /> Collisione predefinita</label>
+          <div class="row">
+            <label>Offset X<input id="col-x" type="number" /></label
+            ><label>Offset Y<input id="col-y" type="number" /></label>
+          </div>
+          <div class="row">
+            <label>Collisione W<input id="col-w" type="number" min="1" max="2048" /></label
+            ><label>Collisione H<input id="col-h" type="number" min="1" max="2048" /></label>
+          </div>
+          <p id="asset-collider-note" class="hint"></p>
+          <button id="apply-asset">Applica asset</button>
+          <p class="hint">
+            Origine e collisione seguono l’oggetto. La profondità usa il punto di appoggio Y.
+            Modifiche applicate a tutte le istanze dell’asset.
+          </p>
+        </section>
+        <section>
+          <h2>Gameplay</h2>
+          <label
+            >Tipo<select id="marker-type">
+              <option value="spawn">Ingresso giocatore</option>
+              <option value="npc">NPC</option>
+              <option value="enemy">Nemico</option>
+              <option value="boss">Boss</option>
+              <option value="portal">Portale</option>
+              <option value="zone">Zona</option>
+            </select></label
+          ><label
+            >Nome / ID<input
+              id="marker-label"
+              maxlength="100"
+              placeholder="es. custode-lumengate" /></label
+          ><label
+            >Destinazione portale<input
+              id="marker-destination"
+              maxlength="100"
+              placeholder="es. bleeding_wilds"
+          /></label>
+        </section>
+        <section>
+          <h2>Elemento selezionato</h2>
+          <p id="selection-info">Usa Seleziona e clicca un oggetto o punto gameplay.</p>
+          <div id="selection-fields" hidden>
+            <div class="row">
+              <label>X<input id="item-x" type="number" /></label
+              ><label>Y<input id="item-y" type="number" /></label>
+            </div>
+            <label>Nome / destinazione<input id="item-label" maxlength="100" /></label
+            ><label>Destinazione portale<input id="item-destination" maxlength="100" /></label>
+            <div id="instance-collision" hidden>
+              <label
+                >Livello<select id="item-layer">
+                  <option value="details">Dettagli</option>
+                  <option value="buildings">Edifici</option>
+                  <option value="objects">Oggetti</option>
+                  <option value="overhead">Sopra il personaggio</option>
+                </select></label
+              >
+              <h2>Collisione di questa istanza</h2>
+              <select id="instance-mode">
+                <option value="inherit">Eredita dall’asset</option>
+                <option value="none">Nessuna</option>
+                <option value="rectangle">Rettangolo personalizzato</option>
+                <option value="polygon">Poligono personalizzato</option>
+              </select>
+              <div class="row">
+                <label>Offset X<input id="instance-x" type="number" /></label
+                ><label>Offset Y<input id="instance-y" type="number" /></label>
+              </div>
+              <div class="row">
+                <label>Larghezza<input id="instance-w" type="number" min="1" /></label
+                ><label>Altezza<input id="instance-h" type="number" min="1" /></label>
+              </div>
+              <label
+                >Vertici locali, X, Y per riga<textarea
+                  id="instance-points"
+                  rows="4"
+                  placeholder="-16, -16&#10;16, -16&#10;16, 0&#10;-16, 0"
+                ></textarea>
+              </label>
+              <div class="row">
+                <button id="draw-instance-rect">Disegna rettangolo</button
+                ><button id="draw-instance-poly">Disegna poligono</button>
+              </div>
+              <button id="apply-instance">Applica istanza</button>
+              <p class="hint">
+                Disegna sul canvas. Poligono: clic per vertice, Invio conferma, Esc annulla.
+              </p>
+            </div>
+            <button id="apply-item">Applica posizione</button
+            ><button id="delete-item">Elimina elemento</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+    <input hidden type="file" id="json-file" accept="application/json,.json" /><input
+      hidden
+      type="file"
+      id="png-file"
+      accept="image/png"
+      multiple
+    />
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

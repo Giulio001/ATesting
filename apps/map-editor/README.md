@@ -1,10 +1,10 @@
 # Aetheria · Atelier delle mappe
 
-Editor **2D manuale in HTML, JavaScript e Phaser 3.90**. App indipendente dal gioco Three.js di ATesting: non cambia mappe, server, porte o salvataggi del gioco 3D. Le mappe esportate usano un nuovo formato versionato; non sono ancora collegate al repository Aetheria 2D.
+Editor 2D manuale in HTML, JavaScript e Phaser 3.90. Include livelli separati, collisioni per istanza, autotiling, revisione e biblioteca con **69 asset reali** di Aetheria. È indipendente dal gioco Three.js di ATesting. L'export ha un loader Phaser incluso, ma non è ancora collegato al gioco 2D online.
 
-![Editor con mappa di esempio](../../docs/map-editor.png)
+![Editor con biblioteca e livelli](../../docs/map-editor-v2.png)
 
-## Avvio su Windows / PC
+## Avvio
 
 Dalla cartella ATesting, con Node.js 22.12+:
 
@@ -14,66 +14,106 @@ npm ci
 npm run editor
 ```
 
-Apri **http://127.0.0.1:5190**. Il server dell'editor ascolta solo sul PC: non serve avviare il gioco o il multiplayer. Per usarlo da un altro dispositivo fidato in LAN:
+Apri **http://127.0.0.1:5190**. Non serve avviare il gioco o il multiplayer. Build statica: `npm run build:editor`, output `apps/map-editor/dist/`. Usa HTTP; non aprire index.html con doppio click.
 
-```powershell
-npm run dev -w @aetheria/map-editor -- --host 0.0.0.0
-```
+Per la LAN: `npm run dev -w @aetheria/map-editor -- --host 0.0.0.0`. Login, salvataggi condivisi, inviti e modifica simultanea online non fanno parte di questa versione: i progetti restano JSON con bozza nel browser. Non è stato effettuato un deploy sulla VPS.
 
-Build statica: `npm run build:editor`. Output: `apps/map-editor/dist/`; servilo tramite HTTP. Non aprire `index.html` con doppio click: usa il comando di avvio.
+## Asset e terreno
 
-## Flusso di lavoro
+**Carica asset Aetheria** aggiunge una biblioteca locale: erba/piazza di Lumengate, strade, acqua, ponte, barile, cassa, scrigno, cartello, fontana, pavimento/corpo/tetto di una casa, Pozzo dell'Infinito e lampioni. I 69 elementi comprendono le varianti dei terreni e degli autotile, non 69 edifici diversi. Sono PNG copiati dal repository del gioco, ritagliati secondo i rispettivi fogli; la fontana usa una posa statica. Non si aggiungono ombre geometriche ai PNG. Le collisioni suggerite sono modificabili: vanno verificate per la disposizione concreta della mappa.
 
-1. Imposta nome, colonne, righe e tile. **Applica dimensioni** preserva le celle nella parte comune; ridurre i bordi rimuove gli elementi esterni. Cambiare dimensione tile scala le posizioni, mentre gli asset conservano la propria dimensione in pixel.
-2. Scegli un terreno nella biblioteca. Dipingi trascinando; usa Rettangolo, Riempi o Gomma. La gomma crea celle trasparenti. L'acqua di esempio è solida per impostazione predefinita.
-3. **+ PNG** importa uno o più oggetti, con trasparenza e ombra già incorporata se presente. Imposta dimensioni visuali, origine e collisione dell'asset. **+ Tileset** divide un PNG in celle della dimensione tile corrente: niente margini/spaziatura, dimensioni multiple esatte del tile. Le celle vengono importate come terreni, senza autotiling.
-4. Seleziona un oggetto nella biblioteca, poi clicca la mappa. Con **Seleziona**, clicca e trascina le istanze. Ctrl+C/V duplica un elemento; Canc lo elimina. X/Y nel pannello destro consentono posizioni precise.
-5. Il livello **Collisioni** permette di dipingere blocchi solidi, con pennello, rettangolo e riempimento. Le collisioni manuali **si sommano** a quelle del terreno e degli oggetti. La gomma rimuove i blocchi manuali; per rendere attraversabile un oggetto/terreno, modifica il suo asset.
-6. Il livello **Gameplay** posiziona ingresso giocatore, NPC, nemici, boss, portali e punti zona. Nome/ID può identificare l'entità o la destinazione di un portale. Le zone sono punti di riferimento, non ancora aree poligonali. Un nuovo ingresso sostituisce il precedente.
-7. **Prova mappa**: muovi il personaggio segnaposto con WASD/frecce. Corsa costante, collisione circolare, movimento diagonale normalizzato. La prova parte dall'ingresso o da una cella libera se l'ingresso è bloccato. Esc torna all'editor. I punti gameplay non attivano combattimenti o teletrasporti nella prova.
-8. **Esporta JSON** salva mappa, catalogo PNG, posizioni, collisioni e gameplay in un solo file. **Apri JSON** ricostruisce il progetto. La bozza viene salvata nel browser dopo ogni modifica, quando la quota disponibile lo permette: conserva sempre un JSON esportato.
+Usa tile **48 px** per mantenere la risoluzione originale di questi terreni. Le dimensioni visuali degli oggetti sono in pixel e restano modificabili. La biblioteca si può caricare più volte senza duplicare gli asset. I ritagli importati vengono incorporati nel JSON: nessun accesso GitHub o URL esterno è necessario per riaprire una mappa. Le sorgenti e i crediti sono in `public/game-assets/`, incluso `SOURCE-CREDITS.md`.
 
-Rotellina: zoom centrato sul mouse. Spazio + trascina, tasto centrale o destro: panoramica. **Inquadra mappa** ripristina la vista. Ctrl+Z / Ctrl+Shift+Z (anche Cmd su Mac): annulla/ripristina. Fino a 30 operazioni, ogni trascinamento è una singola operazione. Il progetto di esempio è in `examples/lumengate-study.json`: aprilo con Apri JSON.
+**+ PNG** importa oggetti; **+ Tileset** divide un PNG in celle della dimensione tile corrente, senza margini né spaziatura. Seleziona un terreno e dipingi con Pennello, Rettangolo o Riempi. La gomma crea celle trasparenti. I terreni d'acqua sono solidi per impostazione predefinita; cambiare tale proprietà su un autotile aggiorna tutte le sue varianti.
 
-Gli asset incorporati di erba/pietra/acqua/albero/pilastro/cassa sono **segnaposto disegnati per l'editor**, non i definitivi del gioco. Non vengono aggiunte ombre geometriche sotto i PNG. Origine (0.5, 1) significa centro del bordo inferiore; la collisione usa offset in pixel rispetto a tale punto. La profondità Phaser di un oggetto è la sua Y: un personaggio con profondità Y passa correttamente davanti/dietro.
+## Livelli
 
-## Integrazione nel gioco Phaser
+| Livello              | Contenuto e profondità                            |
+| -------------------- | ------------------------------------------------- |
+| Terreno              | Griglia di tile, sotto gli altri elementi         |
+| Dettagli             | PNG a terra, sotto il personaggio                 |
+| Edifici              | PNG con ordinamento sul punto di appoggio Y       |
+| Oggetti              | Alberi, lampioni, arredi con ordinamento Y        |
+| Sopra il personaggio | Tetti/chiome sempre sopra personaggi e oggetti    |
+| Collisioni           | Blocchi manuali dipinti sulla griglia             |
+| Gameplay             | Ingresso, NPC, nemici, boss, portali e punti zona |
 
-Copia `src/phaser-map.js`, `src/model.js` e `src/textures.js` nel progetto 2D. `renderMap` carica le texture incorporate, crea terreno e oggetti e restituisce collider e punti gameplay:
+Le due caselle di ogni livello regolano **visibilità** e **blocco**. Un livello nascosto o bloccato non può essere modificato, neppure dal pannello istanza, con Canc o incolla. Per selezionare un oggetto, attiva il suo livello e usa Seleziona. I PNG della biblioteca suggeriscono il livello appropriato: un tetto va sopra il personaggio, un pavimento nei dettagli. Per allineare corpo/pavimento/tetto usa gli stessi X/Y: i tre fogli della casa hanno dimensioni e origine comuni.
+
+Visibilità e blocco sono proprietà dell'editor: **Prova mappa e loader del gioco mostrano tutti i livelli**, e le collisioni rimangono attive. Nascondere un ostacolo per lavorare sul terreno non lo rimuove dal gioco.
+
+## Collisioni per istanza
+
+Seleziona un oggetto e apri **Collisione di questa istanza**:
+
+- **Eredita dall'asset** mantiene la collisione predefinita. È il comportamento iniziale.
+- **Nessuna** rimuove soltanto la collisione di quell'oggetto.
+- **Rettangolo personalizzato** usa offset X/Y, larghezza e altezza; oppure premi Disegna rettangolo e trascina sul canvas.
+- **Poligono personalizzato** usa una riga `X, Y` per vertice; oppure premi Disegna poligono, clicca i vertici in ordine sul canvas e premi **Invio**. **Esc** annulla il disegno.
+
+Coordinate e vertici sono locali rispetto al punto di appoggio dell'oggetto. Spostandolo, il collider lo segue. Le altre istanze restano invariate. Puoi anche cambiare il livello della sola istanza. I poligoni accettano 3–32 vertici e forme concave, ma rifiutano contorni che si incrociano, vertici duplicati consecutivi e area nulla.
+
+Le collisioni dipinte, dei terreni solidi e degli oggetti si sommano. La gomma nel livello Collisioni rimuove solo i blocchi manuali. Per un ponte, dipingi un passaggio non solido sotto il PNG prima di posizionarlo nei Dettagli; il solo PNG non disattiva l'acqua sottostante. Il Pozzo non ha una collisione suggerita: definiscila per istanza secondo il varco che vuoi lasciare accessibile.
+
+## Autotiling
+
+Sentiero/acqua di esempio e strade/acqua Aetheria collegano automaticamente i bordi ai terreni dello stesso gruppo. Il calcolo avviene anche nel loader, dopo pennellate, gomma, riempimento, resize o importazione. La griglia salva il terreno logico e il catalogo salva le varianti.
+
+Per un gruppo personalizzato usa **+ Autotile**, con un foglio **4 × 4 celle** della dimensione tile corrente, ordinato riga per riga da maschera 0 a 15. Somma N=1, E=2, S=4, O=8 per identificare le connessioni. Esempi: 0 isolato; 5 verticale; 10 orizzontale; 15 collegato sui quattro lati. Con tile 48, il PNG deve essere 192 × 192.
+
+Il foglio acqua del gioco usa un formato blob diverso: la biblioteca contiene già la corrispondenza alle 16 connessioni cardinali. Questa versione non calcola angoli interni con adiacenze diagonali né transizioni arbitrarie fra due gruppi diversi. Le mappe v1 vengono migrate preservando il disegno originale, senza applicare retroattivamente autotiling ai vecchi terreni.
+
+## Controlli e approvazione
+
+**Controlla** elenca problemi cliccabili; clicca un problema associato a un elemento per centrare la vista e aprire l'ispettore. **Approva** richiede:
+
+- Esattamente un ingresso giocatore, libero e sufficientemente lontano dal bordo.
+- Portali con una **Destinazione portale** esplicita, separata dal nome, e posizione attraversabile.
+- Asset presenti, griglie coerenti, livelli validi e collisioni valide.
+
+Se i controlli falliscono, la mappa resta in bozza. L'approvazione viene salvata nel JSON; ogni modifica la riporta in bozza. Undo/redo possono recuperare una versione approvata identica. In importazione una mappa marcata approvata viene ricontrollata e torna in bozza se ha problemi. Le destinazioni sono ID da collegare al gioco: il controllo non verifica che una regione esterna esista già né garantisce la raggiungibilità di ogni punto della mappa. L'approvazione è uno stato locale del progetto, non una firma o un permesso di pubblicazione.
+
+## Prova, salvataggio e comandi
+
+**Prova mappa** usa WASD/frecce, corsa costante, movimento diagonale normalizzato e collisione circolare di raggio 9 px. Le forme poligonali vengono controllate esattamente, anche nei loro incavi; il movimento usa sottopassi per non attraversare ostacoli sottili. Se l'ingresso è ostruito la prova può partire da una cella libera, ma l'approvazione rimane bloccata. Esc torna all'editor. I punti gameplay non attivano combattimenti o teletrasporti nella prova.
+
+**Esporta JSON** salva tutto; **Apri JSON** ricostruisce il progetto. Le versioni 1 vengono aggiornate al formato 2. La bozza è salvata nel browser dopo ogni modifica quando la quota lo consente: conserva sempre un JSON esportato. Il progetto originale in `examples/lumengate-study.json` serve anche come esempio di migrazione; aggiungi la destinazione al suo portale per approvarlo.
+
+Rotellina: zoom sul mouse. Spazio + trascina/tasto centrale/destro: panoramica. Inquadra mappa: ripristina vista. Seleziona + trascina: sposta un oggetto. Ctrl+C/V: duplica; Canc: elimina. Ctrl+Z / Ctrl+Shift+Z (anche Cmd): annulla/ripristina. Cronologia di 30 operazioni, ogni trascinamento conta come una sola.
+
+## Integrazione Phaser e server
+
+Copia `src/phaser-map.js`, `src/model.js` e `src/textures.js` nel gioco Phaser. Gestisci la Promise di `renderMap` e attiva il movimento solo dopo il caricamento:
 
 ```js
 import { renderMap } from './maps/phaser-map.js';
 
-// preload() della scena:
+// preload():
 this.load.json('region', 'maps/la-mia-regione.json');
 
-// create() della scena (gestire la Promise e bloccare l'input fino al completamento):
-const region = await renderMap(this, this.cache.json.get('region'));
-this.physics.world.setBounds(0, 0,
-  region.map.width * region.map.tileSize,
-  region.map.height * region.map.tileSize);
-const walls = this.physics.add.staticGroup();
-for (const rect of region.collisions) {
-  const zone = this.add.zone(rect.x + rect.width / 2,
-    rect.y + rect.height / 2, rect.width, rect.height);
-  this.physics.add.existing(zone, true);
-  walls.add(zone);
+// Inizializzazione asincrona chiamata da create():
+this.region = await renderMap(this, this.cache.json.get('region'));
+// Istanzia gli NPC/portali da this.region.markers.
+
+// update(): dopo aver calcolato dx/dy normalizzati per il delta del frame
+if (this.region) {
+  this.region.movePlayer(playerPosition, dx, dy); // { x, y }, raggio 9 px
+  playerImage.setPosition(playerPosition.x, playerPosition.y).setDepth(playerPosition.y);
 }
-this.physics.add.collider(player, walls);
-// Usa region.markers per istanziare gli NPC/nemici/portali del tuo gioco.
-// Nel loop: player.setDepth(player.y).
-// Cleanup: walls.clear(true, true); region.destroy();
+// Cleanup: this.region.destroy();
 ```
 
-Il loader non configura automaticamente fisica, camera, NPC o protocolli server. In Colyseus/Node importa **solo `model.js`**: `validateMap`, `collisionRectangles` e `canStand` sono indipendenti dal browser. Il server deve caricare la **stessa mappa autorizzata dal deploy**, non fidarsi di JSON inviati dai giocatori. Se il gioco usa corpi Arcade rettangolari, allinea la forma del corpo del giocatore alle proprie regole; la prova usa un cerchio di raggio 9 px.
+`region.collisions` contiene rettangoli **e poligoni**, in coordinate mondo; `region.canStand(x,y,radius)` usa entrambe le forme. Non trasformare i poligoni in corpi Arcade rettangolari: perderesti gli incavi. Usa le funzioni condivise o converti i contorni al sistema fisico del gioco.
+
+Nel server Node/Colyseus importa **solo `model.js`**: validazione, `collisionShapes`, `canStand`, `movePlayer`, `reviewMap` sono indipendenti dal browser. Client e server devono usare la stessa mappa e le stesse regole di movimento. `collisionRectangles` resta un helper di compatibilità che restituisce i bounding box dei poligoni, adatto a visualizzazione grossolana, non alla fisica precisa. Il loader non configura camera, NPC, teletrasporti o protocolli server e non pubblica la mappa nel gioco.
 
 ## Limiti e verifica
 
-8–256 celle per lato; tile 16/32/48/64; massimo 2048 asset, 10.000 oggetti e 2000 punti gameplay. PNG oggetto fino a 2048 px per lato; tileset fino a 8192; ogni upload fino a 10 MB; JSON esportabile/importabile fino a 40 MB. Progetti grandi con PNG incorporati consumano più memoria e possono superare la quota browser. Mappe grandi su dispositivi deboli possono essere lente: il loader crea un'immagine Phaser per cella. Prima versione pensata per mouse e tastiera: niente multiselezione, rotazione, animazioni asset, collisioni poligonali o export Tiled TMJ.
+8–256 celle per lato; tile 16/32/48/64; massimo 2048 asset, 128 gruppi autotile, 10.000 oggetti e 2000 marker. PNG oggetto fino a 2048 px per lato; tileset fino a 8192; upload fino a 10 MB; JSON fino a 40 MB. Mappe grandi consumano più memoria e possono superare la quota browser. Il loader crea un'immagine per cella: editor pensato per mouse/tastiera. Non include multiselezione, rotazione, animazioni asset o export Tiled TMJ.
 
 ```bash
 npm run test:editor
 npm run build:editor
 ```
 
-I test verificano round trip, validazione, strumenti di pittura, resize, collider, ingresso, movimento senza attraversamento di ostacoli e cronologia. Il workflow dedicato verifica l'editor senza modificare quello del gioco 3D.
+16 test coprono migrazione, validazione, pittura, resize, collider rettangolari/poligonali, ereditarietà, livelli, 16 maschere autotile, approvazione, catalogo reale e cronologia. Verificati anche nel browser caricamento biblioteca, blocco/visibilità, disegno dei collider, riparazione dei problemi di approvazione, invalidazione dopo modifica, pittura e round trip JSON.
