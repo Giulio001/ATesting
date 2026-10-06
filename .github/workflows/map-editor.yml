@@ -1,0 +1,18 @@
+name: Map editor checks
+on:
+  push:
+    paths: ['apps/map-editor/**', 'package.json', 'package-lock.json', '.github/workflows/map-editor.yml']
+  pull_request:
+    paths: ['apps/map-editor/**', 'package.json', 'package-lock.json', '.github/workflows/map-editor.yml']
+jobs:
+  editor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:editor
+      - run: npm run build:editor

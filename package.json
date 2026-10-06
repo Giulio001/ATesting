@@ -19,7 +19,10 @@
     "test:city": "node --import tsx tests/citycheck.mjs",
     "test:integration": "node --import tsx tests/multiplayer.ts",
     "start": "npm run start -w @aetheria/server",
-    "test:town": "node --import tsx tests/towncheck.mjs"
+    "test:town": "node --import tsx tests/towncheck.mjs",
+    "editor": "npm run dev -w @aetheria/map-editor",
+    "build:editor": "npm run build -w @aetheria/map-editor",
+    "test:editor": "npm run test -w @aetheria/map-editor"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
