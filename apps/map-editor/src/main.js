@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 import './style.css';
 import { addGameLibrary } from './game-library.js';
 import {
+  readDraft,
+  saveDraft,
+  saveCheckpoint,
+  listCheckpoints,
+  readCheckpoint,
+} from './storage.js';
+import {
   newMap,
   validateMap,
   resizeMap,
@@ -28,11 +35,23 @@ import {
   objectCollider,
   reviewMap,
   approveMap,
+  groupPositions,
+  alignedPositions,
+  analyzeReachability,
 } from './model.js';
 import { builtinCanvas, prepareTextures, textureKey } from './textures.js';
 const $ = (id) => document.getElementById(id);
 const id = () => crypto.randomUUID();
 const history = new History(30);
+let selectedRefs = [],
+  draftTimer,
+  draftReady = true,
+  draftVersion = 0,
+  pendingDraft = null;
+let favorites = new Set();
+try {
+  favorites = new Set(JSON.parse(localStorage.getItem('aetheria-asset-favorites') ?? '[]'));
+} catch {}
 let map = newMap(),
   scene,
   selectedAsset = 'grass',
@@ -51,6 +70,7 @@ const tools = [
   ['erase', '⌫ Gomma'],
   ['select', '↖ Seleziona'],
   ['place', '+ Posiziona'],
+  ['pick', '◉ Contagocce'],
 ];
 const colors = {
   spawn: 0xe9d89a,
@@ -73,14 +93,33 @@ function checkpoint() {
 }
 function store() {
   saved = false;
-  try {
-    localStorage.setItem('aetheria-map-draft-v1', JSON.stringify(map));
-    status('Bozza salvata nel browser · esporta JSON per conservarla.');
-  } catch {
-    status('Bozza troppo grande per il browser: esporta JSON.');
-  }
+  draftReady = false;
+  pendingDraft = structuredClone(map);
+  const version = ++draftVersion;
+  clearTimeout(draftTimer);
+  $('draft-state').textContent = 'Salvataggio bozza…';
+  draftTimer = setTimeout(() => flushDraft(version), 350);
   $('undo').disabled = !history.undoStack.length;
   $('redo').disabled = !history.redoStack.length;
+}
+async function flushDraft(version = draftVersion) {
+  clearTimeout(draftTimer);
+  const current = pendingDraft;
+  if (!current) return;
+  try {
+    await saveDraft(current);
+    if (version === draftVersion) {
+      draftReady = true;
+      pendingDraft = null;
+      $('draft-state').textContent =
+        `Bozza salvata · ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+  } catch (e) {
+    if (version === draftVersion) {
+      draftReady = false;
+      $('draft-state').textContent = e.message;
+    }
+  }
 }
 function finish(preserveReview = false) {
   if (!preserveReview) map.review = { status: 'draft' };
@@ -134,7 +173,21 @@ function assetPanel() {
     a.collider?.type === 'polygon'
       ? 'Collisione asset poligonale: usa una collisione per istanza per adattarla.'
       : '';
+  $('favorite-asset').textContent = favorites.has(a.id)
+    ? '★ Rimuovi dai preferiti'
+    : '☆ Aggiungi ai preferiti';
   $('asset-solid').checked = a.kind === 'terrain' ? a.solid : Boolean(a.collider);
+}
+function chooseAsset(a) {
+  selectedAsset = a.id;
+  $('layer').value =
+    a.kind === 'terrain'
+      ? 'terrain'
+      : (a.defaultLayer ??
+        (OBJECT_LAYERS.includes($('layer').value) ? $('layer').value : 'objects'));
+  setTool(a.kind === 'terrain' ? 'brush' : 'place');
+  layerPanel();
+  palette();
 }
 function palette() {
   if (!asset()) selectedAsset = map.assets[0]?.id;
@@ -142,7 +195,12 @@ function palette() {
   for (const a of map.assets.filter(
     (a) =>
       (!autotileGroup(map, a.id) || autotileGroup(map, a.id).tiles[0] === a.id) &&
-      ($('asset-filter').value === 'all' || a.kind === $('asset-filter').value),
+      ($('asset-filter').value === 'all' ||
+        a.kind === $('asset-filter').value ||
+        ($('asset-filter').value === 'favorites' && favorites.has(a.id))) &&
+      a.name
+        .toLocaleLowerCase('it')
+        .includes($('asset-search').value.trim().toLocaleLowerCase('it')),
   )) {
     const button = document.createElement('button');
     button.className = `asset ${a.id === selectedAsset ? 'active' : ''}`;
@@ -152,20 +210,26 @@ function palette() {
     const name = document.createElement('span');
     name.textContent = a.name;
     button.append(img, name);
-    button.onclick = () => {
-      selectedAsset = a.id;
-      $('layer').value =
-        a.kind === 'terrain'
-          ? 'terrain'
-          : (a.defaultLayer ??
-            (OBJECT_LAYERS.includes($('layer').value) ? $('layer').value : 'objects'));
-      setTool(a.kind === 'terrain' ? 'brush' : 'place');
-      layerPanel();
-      palette();
-    };
+    button.onclick = () => chooseAsset(a);
     $('palette').append(button);
   }
+  $('asset-count').textContent = `${$('palette').children.length} asset visibili`;
   assetPanel();
+}
+function selectedItems() {
+  if (!selection) {
+    selectedRefs = [];
+    return [];
+  }
+  if (!selectedRefs.some((r) => r.list === selection.list && r.id === selection.id))
+    selectedRefs = [selection];
+  selectedRefs = selectedRefs.filter((r) => map[r.list]?.some((i) => i.id === r.id));
+  return selectedRefs.map((r) => map[r.list].find((i) => i.id === r.id));
+}
+function setSelection(refs) {
+  selectedRefs = refs;
+  selection = refs.at(-1) ?? null;
+  selectionPanel();
 }
 function selectedItem() {
   return selection ? map[selection.list].find((i) => i.id === selection.id) : null;
@@ -173,13 +237,19 @@ function selectedItem() {
 function selectionPanel() {
   const item = selectedItem();
   if (!item) selection = null;
-  $('selection-fields').hidden = !item;
+  const items = selectedItems();
+  $('multi-selection').hidden = items.length < 2;
+  $('selection-count').textContent = `${items.length} elementi selezionati`;
+  $('selection-fields').hidden = !item || items.length > 1;
   $('selection-info').textContent = item
     ? item.type
       ? `${item.type} · ${item.label || item.id}`
       : map.assets.find((a) => a.id === item.asset)?.name
     : 'Usa Seleziona e clicca un oggetto o punto gameplay.';
-  $('instance-collision').hidden = !item?.asset;
+  if (items.length > 1)
+    $('selection-info').textContent =
+      'Trascina un elemento selezionato per spostare il gruppo. Allineamento sui punti di appoggio.';
+  $('instance-collision').hidden = !item?.asset || items.length > 1;
   if (item?.asset) {
     $('item-layer').value = item.layer ?? 'objects';
     $('instance-mode').value =
@@ -249,11 +319,71 @@ function valueForLayer() {
         : null;
 }
 function removeSelection() {
-  if (testing || !selectedItem() || !itemEditable(selectedItem())) return;
+  const items = selectedItems();
+  if (testing || !items.length || items.some((i) => !itemEditable(i))) return;
   checkpoint();
-  map[selection.list] = map[selection.list].filter((i) => i.id !== selection.id);
-  selection = null;
+  for (const list of ['objects', 'markers']) {
+    const ids = new Set(selectedRefs.filter((r) => r.list === list).map((r) => r.id));
+    map[list] = map[list].filter((i) => !ids.has(i.id));
+  }
+  setSelection([]);
   finish();
+}
+function pasteSelection() {
+  if (testing || !clipboard?.length) return;
+  if (
+    clipboard.some(
+      ({ list, item }) =>
+        !editableLayer(map, item.layer ?? (list === 'markers' ? 'markers' : 'objects')) ||
+        (item.asset && !map.assets.some((a) => a.id === item.asset)),
+    )
+  ) {
+    status('Incolla bloccato: livello non modificabile o asset assente.');
+    return;
+  }
+  if (
+    ['objects', 'markers'].some(
+      (list) =>
+        map[list].length + clipboard.filter((r) => r.list === list).length >
+        (list === 'objects' ? 10000 : 2000),
+    )
+  ) {
+    status('Limite elementi raggiunto.');
+    return;
+  }
+  const positions = groupPositions(
+    map,
+    clipboard.map((r) => r.item),
+    map.tileSize,
+    map.tileSize,
+  );
+  // Cross-map pastes preserve spacing; reject groups larger than the destination.
+  if (
+    positions.some(
+      (p) =>
+        p.x < 0 || p.y < 0 || p.x >= map.width * map.tileSize || p.y >= map.height * map.tileSize,
+    )
+  ) {
+    status('Il gruppo non entra nella mappa.');
+    return;
+  }
+  checkpoint();
+  const refs = [];
+  clipboard.forEach(({ list, item }, n) => {
+    const copy = { ...clone(item), id: id(), x: positions[n].x, y: positions[n].y };
+    if (copy.type === 'spawn') map.markers = map.markers.filter((m) => m.type !== 'spawn');
+    map[list].push(copy);
+    refs.push({ list, id: copy.id });
+  });
+  setSelection(refs);
+  finish();
+  status(`${refs.length} elementi incollati.`);
+}
+function applyPositions(positions) {
+  for (const p of positions) {
+    const item = map.objects.find((i) => i.id === p.id) ?? map.markers.find((i) => i.id === p.id);
+    if (item) Object.assign(item, { x: p.x, y: p.y });
+  }
 }
 class EditorScene extends Phaser.Scene {
   constructor() {
@@ -325,6 +455,7 @@ class EditorScene extends Phaser.Scene {
     $('zoom').textContent = `${Math.round(cam.zoom * 100)}%`;
   }
   sync() {
+    this.reachability = null;
     const count = map.width * map.height;
     for (let i = count; i < this.tileNodes.length; i++) this.tileNodes[i]?.destroy();
     this.tileNodes.length = count;
@@ -379,6 +510,7 @@ class EditorScene extends Phaser.Scene {
       this.markerNodes.push(label);
     }
     this.drawOverlay();
+    rebuildMinimap();
   }
   drawOverlay() {
     const g = this.overlay;
@@ -398,6 +530,19 @@ class EditorScene extends Phaser.Scene {
     );
     if ($('show-collisions').checked && (testing || layerState(map, 'collisions').visible))
       for (const shape of collisionShapes(map)) drawShape(g, shape, 0xee8980, 0.24);
+    if (!testing && $('show-reachability').checked) {
+      this.reachability ??= analyzeReachability(map);
+      const r = this.reachability;
+      if (r)
+        for (let i = 0; i < r.walkable.length; i++)
+          if (r.walkable[i] && !r.reachable[i])
+            g.fillStyle(0xe2a15f, 0.35).fillRect(
+              (i % map.width) * map.tileSize,
+              Math.floor(i / map.width) * map.tileSize,
+              map.tileSize,
+              map.tileSize,
+            );
+    }
     const selected = selectedItem();
     if (!testing && selected?.asset) {
       const shape = objectCollider(map, selected);
@@ -409,17 +554,28 @@ class EditorScene extends Phaser.Scene {
           .fillCircle(m.x, m.y, 8)
           .lineStyle(2, colors[m.type])
           .strokeCircle(m.x, m.y, 11);
-      const item = selectedItem();
-      if (item?.asset) {
-        const a = assetsFor(item);
-        g.lineStyle(2, 0xffe2a0).strokeRect(
-          item.x - a.width * a.originX,
-          item.y - a.height * a.originY,
-          a.width,
-          a.height,
+      for (const item of selectedItems()) {
+        if (item?.asset) {
+          const a = assetsFor(item);
+          g.lineStyle(2, 0xffe2a0).strokeRect(
+            item.x - a.width * a.originX,
+            item.y - a.height * a.originY,
+            a.width,
+            a.height,
+          );
+          g.fillStyle(0xffe2a0).fillCircle(item.x, item.y, 3);
+        } else if (item) g.lineStyle(2, 0xffe2a0).strokeCircle(item.x, item.y, 16);
+      }
+      if (this.drag?.marquee) {
+        const a = this.drag.start,
+          b = this.drag.end;
+        g.lineStyle(2 / this.cameras.main.zoom, 0xffe2a0).strokeRect(
+          Math.min(a.x, b.x),
+          Math.min(a.y, b.y),
+          Math.abs(a.x - b.x),
+          Math.abs(a.y - b.y),
         );
-        g.fillStyle(0xffe2a0).fillCircle(item.x, item.y, 3);
-      } else if (item) g.lineStyle(2, 0xffe2a0).strokeCircle(item.x, item.y, 16);
+      }
       if (this.polygonDraft) {
         const object = map.objects.find((o) => o.id === this.polygonDraft.id);
         if (object) {
@@ -489,19 +645,52 @@ class EditorScene extends Phaser.Scene {
         };
       return;
     }
+    if (tool === 'pick') {
+      if (layer === 'terrain') {
+        const a = map.assets.find((a) => a.id === canonicalTile(map, map.terrain[index]));
+        if (a) {
+          chooseAsset(a);
+          status('Terreno campionato dalla mappa.');
+        }
+      } else {
+        const ref = hit(point.x, point.y),
+          item = ref ? map[ref.list].find((i) => i.id === ref.id) : null;
+        if (item?.asset) {
+          chooseAsset(assetsFor(item));
+          status('Oggetto campionato dalla mappa.');
+        }
+      }
+      return;
+    }
     if (tool === 'select') {
-      selection = hit(point.x, point.y);
-      selectionPanel();
-      if (selection) {
-        const item = selectedItem();
-        checkpoint();
-        this.drag = { select: true, dx: point.x - item.x, dy: point.y - item.y };
+      const ref = hit(point.x, point.y),
+        add = this.held.has('ShiftLeft') || this.held.has('ShiftRight');
+      const refs = selectedItems().length ? [...selectedRefs] : [];
+      if (ref) {
+        const existing = refs.findIndex((r) => r.list === ref.list && r.id === ref.id);
+        if (add)
+          setSelection(existing >= 0 ? refs.filter((_, i) => i !== existing) : [...refs, ref]);
+        else if (existing < 0) setSelection([ref]);
+        if (selectedItems().length && (!add || existing < 0)) {
+          const items = selectedItems();
+          if (items.every(itemEditable))
+            this.drag = {
+              select: true,
+              start: point,
+              items: items.map((i) => ({ id: i.id, x: i.x, y: i.y })),
+              changed: false,
+            };
+        }
+      } else {
+        if (!add) setSelection([]);
+        this.drag = { marquee: true, start: point, end: point, initial: add ? refs : [], layer };
       }
       this.drawOverlay();
       return;
     }
     if (tool === 'erase' && [...OBJECT_LAYERS, 'markers'].includes(layer)) {
-      selection = hit(point.x, point.y);
+      const ref = hit(point.x, point.y);
+      setSelection(ref ? [ref] : []);
       removeSelection();
       return;
     }
@@ -590,9 +779,23 @@ class EditorScene extends Phaser.Scene {
       this.drawOverlay();
       return;
     }
+    if (this.drag.marquee) {
+      this.drag.end = point;
+      this.drawOverlay();
+      return;
+    }
     if (this.drag.select) {
-      Object.assign(selectedItem(), snapped(point.x - this.drag.dx, point.y - this.drag.dy));
-      this.sync();
+      const d = this.drag,
+        dx = point.x - d.start.x,
+        dy = point.y - d.start.y;
+      if (!d.changed && Math.hypot(dx, dy) > 2 / this.cameras.main.zoom) {
+        checkpoint();
+        d.changed = true;
+      }
+      if (d.changed) {
+        applyPositions(groupPositions(map, d.items, dx, dy, $('snap').checked ? map.tileSize : 1));
+        this.sync();
+      }
       return;
     }
     const i = cell(map, point.x, point.y);
@@ -619,6 +822,35 @@ class EditorScene extends Phaser.Scene {
     if (!this.drag) return;
     const d = this.drag;
     this.drag = null;
+    if (d.marquee) {
+      const list = d.layer === 'markers' ? 'markers' : 'objects';
+      const left = Math.min(d.start.x, d.end.x),
+        right = Math.max(d.start.x, d.end.x),
+        top = Math.min(d.start.y, d.end.y),
+        bottom = Math.max(d.start.y, d.end.y);
+      const found = map[list]
+        .filter(
+          (i) =>
+            (i.type || i.layer === d.layer) &&
+            i.x >= left &&
+            i.x <= right &&
+            i.y >= top &&
+            i.y <= bottom,
+        )
+        .map((i) => ({ list, id: i.id }));
+      setSelection([
+        ...d.initial,
+        ...found.filter((r) => !d.initial.some((i) => i.list === r.list && i.id === r.id)),
+      ]);
+      this.drawOverlay();
+      status(`${selectedItems().length} elementi selezionati.`);
+      return;
+    }
+    if (d.select && !d.changed) {
+      selectionPanel();
+      this.drawOverlay();
+      return;
+    }
     if (d.colliderRect) {
       const item = map.objects.find((o) => o.id === d.id);
       if (item)
@@ -638,6 +870,7 @@ class EditorScene extends Phaser.Scene {
     if (!d.pan) finish();
   }
   update(_time, delta) {
+    drawMinimapViewport();
     if (!testing || !player) return;
     const x =
       Number(this.held.has('KeyD') || this.held.has('ArrowRight')) -
@@ -692,7 +925,10 @@ async function loadMap(next) {
   const validated = validateMap(next);
   if (!scene) return;
   await prepareTextures(scene, validated.assets);
-  if (validated.review.status === 'approved' && reviewMap(validated).length)
+  if (
+    validated.review.status === 'approved' &&
+    reviewMap(validated).some((i) => i.severity === 'error')
+  )
     validated.review.status = 'draft';
   if (testing) toggleTest();
   scene.polygonDraft = null;
@@ -714,7 +950,9 @@ $('marker-type').onchange = () => {
   setTool('place');
 };
 $('asset-filter').onchange = palette;
-for (const name of ['show-grid', 'show-collisions']) $(name).onchange = () => scene?.drawOverlay();
+$('asset-search').oninput = palette;
+for (const name of ['show-grid', 'show-collisions', 'show-reachability'])
+  $(name).onchange = () => scene?.drawOverlay();
 $('fit').onclick = () => scene?.fit();
 $('test').onclick = toggleTest;
 async function applyHistory(method) {
@@ -855,7 +1093,8 @@ $('apply-asset').onclick = () => {
 };
 $('delete-item').onclick = removeSelection;
 $('apply-item').onclick = () => {
-  if (testing || !selectedItem() || !itemEditable(selectedItem())) return;
+  if (testing || selectedItems().length !== 1 || !selectedItem() || !itemEditable(selectedItem()))
+    return;
   const x = +$('item-x').value,
     y = +$('item-y').value;
   if (
@@ -1022,36 +1261,68 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     removeSelection();
   }
-  if (mod && e.code === 'KeyC' && selectedItem()) {
-    e.preventDefault();
-    clipboard = { list: selection.list, item: clone(selectedItem()) };
-    status('Elemento copiato.');
-  }
   if (
     mod &&
-    e.code === 'KeyV' &&
-    clipboard &&
-    editableLayer(
-      map,
-      clipboard.item.layer ?? (clipboard.list === 'markers' ? 'markers' : 'objects'),
-    ) &&
-    map[clipboard.list].length < (clipboard.list === 'objects' ? 10000 : 2000)
+    e.code === 'KeyA' &&
+    ['objects', 'markers', ...OBJECT_LAYERS].includes($('layer').value)
   ) {
     e.preventDefault();
-    if (clipboard.item.asset && !map.assets.some((a) => a.id === clipboard.item.asset)) {
-      status('Asset copiato assente dalla mappa attuale.');
-      return;
+    const list = $('layer').value === 'markers' ? 'markers' : 'objects';
+    if (editableLayer(map, $('layer').value))
+      setSelection(
+        map[list]
+          .filter((i) => i.type || i.layer === $('layer').value)
+          .map((i) => ({ list, id: i.id })),
+      );
+    scene?.drawOverlay();
+  }
+  if (mod && e.code === 'KeyS') {
+    e.preventDefault();
+    $('save').click();
+    return;
+  }
+  if (mod && e.code === 'KeyD') {
+    e.preventDefault();
+    $('duplicate-selection').click();
+    return;
+  }
+  if (
+    !mod &&
+    ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code) &&
+    selectedItems().length
+  ) {
+    const items = selectedItems();
+    if (items.every(itemEditable)) {
+      const amount = e.shiftKey ? map.tileSize : 1;
+      checkpoint();
+      applyPositions(
+        groupPositions(
+          map,
+          items,
+          e.code === 'ArrowLeft' ? -amount : e.code === 'ArrowRight' ? amount : 0,
+          e.code === 'ArrowUp' ? -amount : e.code === 'ArrowDown' ? amount : 0,
+        ),
+      );
+      finish();
     }
-    checkpoint();
-    const item = {
-      ...clone(clipboard.item),
-      id: id(),
-      ...snapped(clipboard.item.x + map.tileSize, clipboard.item.y + map.tileSize),
-    };
-    if (item.type === 'spawn') map.markers = map.markers.filter((m) => m.type !== 'spawn');
-    map[clipboard.list].push(item);
-    selection = { list: clipboard.list, id: item.id };
-    finish();
+    return;
+  }
+  if (mod && e.code === 'KeyC' && selectedItems().length) {
+    e.preventDefault();
+    clipboard = selectedRefs.map((r) => ({
+      list: r.list,
+      item: clone(map[r.list].find((i) => i.id === r.id)),
+    }));
+    status(`${clipboard.length} elementi copiati.`);
+  }
+  if (mod && e.code === 'KeyV') {
+    e.preventDefault();
+    pasteSelection();
+  }
+  if (!mod && e.code === 'KeyI') setTool('pick');
+  if (!mod && e.code === 'Escape') {
+    setSelection([]);
+    scene?.drawOverlay();
   }
 });
 
@@ -1192,7 +1463,7 @@ function showReview() {
   for (const issue of issues) {
     const button = document.createElement('button');
     button.className = 'review-issue';
-    button.textContent = issue.message;
+    button.textContent = (issue.severity === 'warning' ? 'Avviso: ' : '') + issue.message;
     button.onclick = () => {
       const item =
         map.markers.find((m) => m.id === issue.item) ??
@@ -1208,7 +1479,15 @@ function showReview() {
     };
     $('review-results').append(button);
   }
-  status(issues.length ? `${issues.length} problemi da correggere.` : 'Controlli superati.');
+  const errors = issues.filter((i) => i.severity === 'error').length,
+    warnings = issues.length - errors;
+  status(
+    errors
+      ? `${errors} errori da correggere${warnings ? `, ${warnings} avvisi` : ''}.`
+      : warnings
+        ? `${warnings} avvisi da verificare; approvazione consentita.`
+        : 'Controlli superati.',
+  );
   return issues;
 }
 $('review-check').onclick = showReview;
@@ -1246,10 +1525,156 @@ $('game-assets').onclick = async () => {
     button.disabled = false;
   }
 };
+
+for (const button of $('alignment-tools').querySelectorAll('button'))
+  button.onclick = () => {
+    const items = selectedItems();
+    if (testing || items.length < 2 || items.some((i) => !itemEditable(i))) return;
+    try {
+      const positions = alignedPositions(items, button.dataset.align);
+      checkpoint();
+      applyPositions(positions);
+      finish();
+      status('Allineamento applicato ai punti di appoggio.');
+    } catch (e) {
+      status(e.message);
+    }
+  };
+$('duplicate-selection').onclick = () => {
+  if (!selectedItems().length) return;
+  clipboard = selectedRefs.map((r) => ({
+    list: r.list,
+    item: clone(map[r.list].find((i) => i.id === r.id)),
+  }));
+  pasteSelection();
+};
+$('delete-selection').onclick = removeSelection;
+$('favorite-asset').onclick = () => {
+  if (!asset()) return;
+  if (favorites.has(selectedAsset)) favorites.delete(selectedAsset);
+  else favorites.add(selectedAsset);
+  try {
+    localStorage.setItem('aetheria-asset-favorites', JSON.stringify([...favorites]));
+  } catch {}
+  palette();
+};
+async function checkpointList() {
+  try {
+    const list = await listCheckpoints();
+    $('checkpoint-list').replaceChildren();
+    for (const entry of list) {
+      const option = document.createElement('option');
+      option.value = entry.id;
+      option.textContent = `${new Date(entry.updatedAt).toLocaleString('it-IT')} · ${entry.name}`;
+      $('checkpoint-list').append(option);
+    }
+    $('restore-checkpoint').disabled = !list.length;
+  } catch (e) {
+    $('draft-state').textContent = 'Checkpoint non disponibili in questo browser.';
+  }
+}
+$('save-checkpoint').onclick = async () => {
+  if (!scene || testing) return;
+  scene.endStroke();
+  try {
+    await flushDraft();
+    await saveCheckpoint(map);
+    await checkpointList();
+    status('Checkpoint salvato: sono conservate le ultime cinque versioni.');
+  } catch (e) {
+    status('Checkpoint non salvato: ' + e.message);
+  }
+};
+$('restore-checkpoint').onclick = async () => {
+  if (testing || !$('checkpoint-list').value) return;
+  try {
+    const previous = await readCheckpoint($('checkpoint-list').value);
+    if (!previous) return;
+    if (!confirm('Ripristinare questo checkpoint? Puoi annullare il ripristino con Ctrl+Z.'))
+      return;
+    await loadMap(previous);
+    status('Checkpoint ripristinato.');
+  } catch (e) {
+    status(e.message);
+  }
+};
+$('save-draft').onclick = () => {
+  pendingDraft = structuredClone(map);
+  draftReady = false;
+  ++draftVersion;
+  flushDraft();
+};
+const miniBase = document.createElement('canvas');
+miniBase.width = 200;
+miniBase.height = 140;
+function rebuildMinimap() {
+  if (!scene) return;
+  const ctx = miniBase.getContext('2d');
+  ctx.fillStyle = '#0e1713';
+  ctx.fillRect(0, 0, 200, 140);
+  ctx.imageSmoothingEnabled = false;
+  const sx = 200 / (map.width * map.tileSize),
+    sy = 140 / (map.height * map.tileSize),
+    assets = new Map(map.assets.map((a) => [a.id, a]));
+  if (testing || layerState(map, 'terrain').visible)
+    for (let y = 0; y < map.height; y++)
+      for (let x = 0; x < map.width; x++) {
+        const a = assets.get(renderedTile(map, x, y));
+        if (!a) continue;
+        const source = scene.textures.get(textureKey(a)).getSourceImage();
+        ctx.drawImage(
+          source,
+          x * map.tileSize * sx,
+          y * map.tileSize * sy,
+          map.tileSize * sx + 0.25,
+          map.tileSize * sy + 0.25,
+        );
+      }
+  for (const item of map.objects)
+    if (testing || layerState(map, item.layer).visible) {
+      ctx.fillStyle = item.layer === 'buildings' ? '#bd9972' : '#abc8a3';
+      ctx.fillRect(item.x * sx - 1.5, item.y * sy - 1.5, 3, 3);
+    }
+  for (const m of map.markers.filter(() => testing || layerState(map, 'markers').visible)) {
+    ctx.fillStyle = '#' + colors[m.type].toString(16).padStart(6, '0');
+    ctx.beginPath();
+    ctx.arc(m.x * sx, m.y * sy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawMinimapViewport();
+}
+function drawMinimapViewport() {
+  if (!scene) return;
+  const canvas = $('minimap'),
+    ctx = canvas.getContext('2d');
+  ctx.drawImage(miniBase, 0, 0);
+  const cam = scene.cameras.main,
+    a = cam.getWorldPoint(0, 0),
+    b = cam.getWorldPoint(scene.scale.width, scene.scale.height);
+  ctx.strokeStyle = '#ffe2a0';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(
+    (a.x / (map.width * map.tileSize)) * 200,
+    (a.y / (map.height * map.tileSize)) * 140,
+    ((b.x - a.x) / (map.width * map.tileSize)) * 200,
+    ((b.y - a.y) / (map.height * map.tileSize)) * 140,
+  );
+}
+$('minimap').onpointerdown = (e) => {
+  if (!scene || testing) return;
+  const box = $('minimap').getBoundingClientRect();
+  scene.cameras.main.centerOn(
+    ((e.clientX - box.left) / box.width) * map.width * map.tileSize,
+    ((e.clientY - box.top) / box.height) * map.height * map.tileSize,
+  );
+  drawMinimapViewport();
+};
+await checkpointList();
 try {
-  const draft = localStorage.getItem('aetheria-map-draft-v1');
-  if (draft && draft.length <= 40_000_000) {
-    map = validateMap(JSON.parse(draft));
+  const draft = await readDraft();
+  if (draft) {
+    map = validateMap(draft);
+    $('draft-state').textContent = 'Bozza recuperata';
     saved = false;
   }
 } catch {
@@ -1279,7 +1704,7 @@ new ResizeObserver(() => {
   if (scene) scene.scale.resize($('canvas').clientWidth, $('canvas').clientHeight);
 }).observe($('canvas'));
 window.addEventListener('beforeunload', (e) => {
-  if (!saved) {
+  if (!saved && !draftReady) {
     e.preventDefault();
     e.returnValue = '';
   }

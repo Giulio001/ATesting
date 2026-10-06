@@ -10,7 +10,7 @@ Ricostruzione parallela di **Aetheria — Shards of the Void** con TypeScript, T
 
 ## Editor mappe 2D Phaser
 
-Il repository include anche un **editor manuale indipendente** per Aetheria 2D: terreno, PNG/tileset, collisioni, NPC/portali e prova con un personaggio. Avvia `npm run editor` e apri **http://127.0.0.1:5190**. Salva/apri progetti JSON portabili. L'editor non modifica le mappe 3D e il nuovo formato deve essere collegato al gioco 2D con il loader incluso.
+Il repository include anche un **editor manuale indipendente** per Aetheria 2D: terreno con autotiling, asset reali, livelli, collisioni per istanza, multiselezione, allineamento, minimappa e prova con un personaggio. La bozza si salva nel browser e puoi conservare cinque checkpoint. Avvia `npm run editor` e apri **http://127.0.0.1:5190**. Salva/apri progetti JSON portabili. L'editor non modifica le mappe 3D e il nuovo formato deve essere collegato al gioco 2D con il loader incluso.
 
 [Guida completa e integrazione Phaser](apps/map-editor/README.md).
 

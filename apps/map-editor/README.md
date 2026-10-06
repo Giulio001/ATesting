@@ -1,8 +1,8 @@
 # Aetheria · Atelier delle mappe
 
-Editor 2D manuale in HTML, JavaScript e Phaser 3.90. Include livelli separati, collisioni per istanza, autotiling, revisione e biblioteca con **69 asset reali** di Aetheria. È indipendente dal gioco Three.js di ATesting. L'export ha un loader Phaser incluso, ma non è ancora collegato al gioco 2D online.
+Editor 2D manuale in HTML, JavaScript e Phaser 3.90. Include selezione multipla, allineamento, minimappa, checkpoint, livelli separati, collisioni per istanza, autotiling, revisione e biblioteca con **69 asset reali** di Aetheria. È indipendente dal gioco Three.js di ATesting. L'export ha un loader Phaser incluso, ma non è ancora collegato al gioco 2D online.
 
-![Editor con biblioteca e livelli](../../docs/map-editor-v2.png)
+![Editor con biblioteca e livelli](../../docs/map-editor-v3.png)
 
 ## Avvio
 
@@ -24,6 +24,8 @@ Per la LAN: `npm run dev -w @aetheria/map-editor -- --host 0.0.0.0`. Login, salv
 
 Usa tile **48 px** per mantenere la risoluzione originale di questi terreni. Le dimensioni visuali degli oggetti sono in pixel e restano modificabili. La biblioteca si può caricare più volte senza duplicare gli asset. I ritagli importati vengono incorporati nel JSON: nessun accesso GitHub o URL esterno è necessario per riaprire una mappa. Le sorgenti e i crediti sono in `public/game-assets/`, incluso `SOURCE-CREDITS.md`.
 
+**Cerca asset** filtra la palette per nome; la stella salva i preferiti in questo browser. **Contagocce (I)** campiona il terreno o l’oggetto dal livello attivo e torna al pennello/posizionamento. Le varianti autotile sono raggruppate nella palette.
+
 **+ PNG** importa oggetti; **+ Tileset** divide un PNG in celle della dimensione tile corrente, senza margini né spaziatura. Seleziona un terreno e dipingi con Pennello, Rettangolo o Riempi. La gomma crea celle trasparenti. I terreni d'acqua sono solidi per impostazione predefinita; cambiare tale proprietà su un autotile aggiorna tutte le sue varianti.
 
 ## Livelli
@@ -41,6 +43,16 @@ Usa tile **48 px** per mantenere la risoluzione originale di questi terreni. Le 
 Le due caselle di ogni livello regolano **visibilità** e **blocco**. Un livello nascosto o bloccato non può essere modificato, neppure dal pannello istanza, con Canc o incolla. Per selezionare un oggetto, attiva il suo livello e usa Seleziona. I PNG della biblioteca suggeriscono il livello appropriato: un tetto va sopra il personaggio, un pavimento nei dettagli. Per allineare corpo/pavimento/tetto usa gli stessi X/Y: i tre fogli della casa hanno dimensioni e origine comuni.
 
 Visibilità e blocco sono proprietà dell'editor: **Prova mappa e loader del gioco mostrano tutti i livelli**, e le collisioni rimangono attive. Nascondere un ostacolo per lavorare sul terreno non lo rimuove dal gioco.
+
+## Selezione e composizione
+
+Con **Seleziona**, Shift + clic aggiunge/rimuove elementi; trascina su uno spazio vuoto per selezionare i punti di appoggio dentro un rettangolo. Shift + rettangolo aggiunge alla selezione. Il livello attivo determina gli elementi selezionabili; Ctrl/Cmd+A seleziona tutti gli oggetti o marker di quel livello.
+
+Trascina un elemento del gruppo per spostare l’intera selezione mantenendo le distanze. Lo snap arrotonda lo spostamento comune; il gruppo si ferma ai bordi della mappa. Nel pannello gruppo puoi allineare sinistra/destra/alto/basso/centro o distribuire almeno tre elementi lungo X/Y. **Allineamenti e distribuzioni usano i punti di appoggio**, non i bordi dei PNG.
+
+Ctrl/Cmd+C e V copiano/incollano il gruppo con nuove istanze, conservando livelli e collisioni personali. Ctrl/Cmd+D duplica; Canc elimina la selezione. Le frecce spostano di 1 px, Shift + freccia di un tile. Ogni trascinamento/allineamento è una sola operazione annullabile. L’ispettore collisioni si apre selezionando una sola istanza.
+
+La **minimappa** mostra terreno, oggetti e punti gameplay. Clicca per centrare la vista; il rettangolo indica l’area visibile. La navigazione è disattivata durante Prova mappa.
 
 ## Collisioni per istanza
 
@@ -73,13 +85,17 @@ Il foglio acqua del gioco usa un formato blob diverso: la biblioteca contiene gi
 
 Se i controlli falliscono, la mappa resta in bozza. L'approvazione viene salvata nel JSON; ogni modifica la riporta in bozza. Undo/redo possono recuperare una versione approvata identica. In importazione una mappa marcata approvata viene ricontrollata e torna in bozza se ha problemi. Le destinazioni sono ID da collegare al gioco: il controllo non verifica che una regione esterna esista già né garantisce la raggiungibilità di ogni punto della mappa. L'approvazione è uno stato locale del progetto, non una firma o un permesso di pubblicazione.
 
+Il controllo dei percorsi segnala **avvisi** per portali, NPC, nemici e boss che potrebbero essere irraggiungibili dall’ingresso. **Zone isolate** colora in arancio le celle libere non collegate. L’analisi usa i centri delle celle, un personaggio di raggio 9 px e verifica i collegamenti contro rettangoli e poligoni: passaggi stretti o percorsi fra i centri possono produrre falsi avvisi. Gli avvisi non bloccano l’approvazione; verifica in Prova mappa.
+
 ## Prova, salvataggio e comandi
 
 **Prova mappa** usa WASD/frecce, corsa costante, movimento diagonale normalizzato e collisione circolare di raggio 9 px. Le forme poligonali vengono controllate esattamente, anche nei loro incavi; il movimento usa sottopassi per non attraversare ostacoli sottili. Se l'ingresso è ostruito la prova può partire da una cella libera, ma l'approvazione rimane bloccata. Esc torna all'editor. I punti gameplay non attivano combattimenti o teletrasporti nella prova.
 
-**Esporta JSON** salva tutto; **Apri JSON** ricostruisce il progetto. Le versioni 1 vengono aggiornate al formato 2. La bozza è salvata nel browser dopo ogni modifica quando la quota lo consente: conserva sempre un JSON esportato. Il progetto originale in `examples/lumengate-study.json` serve anche come esempio di migrazione; aggiungi la destinazione al suo portale per approvarlo.
+**Esporta JSON** salva tutto; **Apri JSON** ricostruisce il progetto. Le versioni 1 vengono aggiornate al formato 2. La bozza viene salvata automaticamente in **IndexedDB**, dopo una breve pausa dalle modifiche; lo stato è visibile nella barra sotto il canvas. **Salva bozza** forza il salvataggio. Le vecchie bozze localStorage vengono recuperate automaticamente; localStorage resta un ripiego se IndexedDB non è disponibile.
 
-Rotellina: zoom sul mouse. Spazio + trascina/tasto centrale/destro: panoramica. Inquadra mappa: ripristina vista. Seleziona + trascina: sposta un oggetto. Ctrl+C/V: duplica; Canc: elimina. Ctrl+Z / Ctrl+Shift+Z (anche Cmd): annulla/ripristina. Cronologia di 30 operazioni, ogni trascinamento conta come una sola.
+**Checkpoint** conserva le ultime **cinque versioni manuali**, incluse immagini e collisioni. Seleziona una versione e premi **Ripristina checkpoint**: il ripristino può essere annullato. Bozza, checkpoint e preferiti sono locali a questo browser e a questo indirizzo web; cambiare indirizzo/porta, cancellare i dati del sito o usare un altro dispositivo crea un archivio diverso. Conserva sempre un JSON esportato, soprattutto prima di svuotare i dati del sito. Il salvataggio può fallire se la quota browser è esaurita. Il progetto originale in `examples/lumengate-study.json` serve anche come esempio di migrazione; aggiungi la destinazione al suo portale per approvarlo.
+
+Rotellina: zoom sul mouse. Spazio + trascina/tasto centrale/destro: panoramica. Inquadra mappa: ripristina vista. Seleziona + trascina: sposta la selezione. Shift + clic/rettangolo: multiselezione. Ctrl+C/V: copia/incolla; Ctrl+D: duplica; Ctrl+A: seleziona il livello; Canc: elimina. I: contagocce. Ctrl+Z / Ctrl+Shift+Z (anche Cmd): annulla/ripristina. Cronologia di 30 operazioni, ogni trascinamento conta come una sola.
 
 ## Integrazione Phaser e server
 
@@ -109,11 +125,11 @@ Nel server Node/Colyseus importa **solo `model.js`**: validazione, `collisionSha
 
 ## Limiti e verifica
 
-8–256 celle per lato; tile 16/32/48/64; massimo 2048 asset, 128 gruppi autotile, 10.000 oggetti e 2000 marker. PNG oggetto fino a 2048 px per lato; tileset fino a 8192; upload fino a 10 MB; JSON fino a 40 MB. Mappe grandi consumano più memoria e possono superare la quota browser. Il loader crea un'immagine per cella: editor pensato per mouse/tastiera. Non include multiselezione, rotazione, animazioni asset o export Tiled TMJ.
+8–256 celle per lato; tile 16/32/48/64; massimo 2048 asset, 128 gruppi autotile, 10.000 oggetti e 2000 marker. PNG oggetto fino a 2048 px per lato; tileset fino a 8192; upload fino a 10 MB; JSON fino a 40 MB. Mappe grandi consumano più memoria e possono superare la quota browser. Il loader crea un'immagine per cella: editor pensato per mouse/tastiera. Non include rotazione, animazioni asset o export Tiled TMJ.
 
 ```bash
 npm run test:editor
 npm run build:editor
 ```
 
-16 test coprono migrazione, validazione, pittura, resize, collider rettangolari/poligonali, ereditarietà, livelli, 16 maschere autotile, approvazione, catalogo reale e cronologia. Verificati anche nel browser caricamento biblioteca, blocco/visibilità, disegno dei collider, riparazione dei problemi di approvazione, invalidazione dopo modifica, pittura e round trip JSON.
+20 test coprono migrazione, validazione, pittura, resize, collider rettangolari/poligonali, ereditarietà, livelli, 16 maschere autotile, approvazione, catalogo reale, cronologia, spostamento di gruppi, allineamento, distribuzione e analisi dei percorsi. Verificati anche nel browser caricamento biblioteca, blocco/visibilità, disegno dei collider, riparazione dei problemi di approvazione, invalidazione dopo modifica, pittura e round trip JSON; inoltre selezione a rettangolo, copia/eliminazione/undo di gruppi, ripristino checkpoint, recupero bozza al reload, ricerca/preferiti, contagocce, minimappa e avvisi di raggiungibilità.

@@ -61,6 +61,9 @@
           </select>
           <p class="hint">Livello · visibile · bloccato</p>
           <div id="layer-controls"></div>
+          <label
+            ><input type="checkbox" id="show-reachability" /> Zone potenzialmente isolate</label
+          >
           <label><input type="checkbox" id="show-grid" checked /> Griglia</label
           ><label><input type="checkbox" id="show-collisions" checked /> Collisioni</label
           ><label><input type="checkbox" id="snap" checked /> Aggancia alla griglia</label>
@@ -73,6 +76,20 @@
           <div id="review-results"></div>
         </section>
         <section>
+          <h2>Minimappa</h2>
+          <canvas
+            id="minimap"
+            width="200"
+            height="140"
+            aria-label="Minimappa: clic per navigare"
+          ></canvas>
+          <h2>Bozza e checkpoint</h2>
+          <div class="row">
+            <button id="save-draft">Salva bozza</button
+            ><button id="save-checkpoint">Checkpoint</button>
+          </div>
+          <select id="checkpoint-list" aria-label="Checkpoint salvati"></select
+          ><button id="restore-checkpoint">Ripristina checkpoint</button>
           <h2>Vista</h2>
           <div class="row">
             <button id="undo">↶ Annulla</button><button id="redo">↷ Ripristina</button>
@@ -80,7 +97,8 @@
           <button id="fit">Inquadra mappa</button>
           <p class="hint">
             Rotellina: zoom · Spazio + trascina: sposta vista · Ctrl+Z: annulla · Canc: elimina ·
-            Ctrl+C/V: copia/incolla oggetto.
+            Shift + clic/rettangolo: multiselezione · Ctrl+C/V: copia/incolla · Ctrl+D: duplica · I:
+            contagocce.
           </p>
         </section>
       </aside>
@@ -90,7 +108,9 @@
         </div>
         <div id="canvas"></div>
         <footer>
-          <span id="coords">X — · Y —</span><span id="status" role="status">Pronto</span>
+          <span id="coords">X — · Y —</span
+          ><span id="draft-state" role="status">Nessuna modifica</span
+          ><span id="status" role="status">Pronto</span>
         </footer>
       </div>
       <aside class="right">
@@ -107,14 +127,23 @@
           <select id="asset-filter">
             <option value="all">Tutti gli asset</option>
             <option value="terrain">Terreni</option>
-            <option value="object">Oggetti</option></select
+            <option value="object">Oggetti</option>
+            <option value="favorites">Preferiti ★</option></select
           ><button id="game-assets">Carica asset Aetheria</button>
           <p class="hint">Autotile: foglio 4 × 4 ordinato per maschera N=1, E=2, S=4, O=8.</p>
+          <input
+            id="asset-search"
+            type="search"
+            placeholder="Cerca asset…"
+            aria-label="Cerca asset"
+          />
+          <p id="asset-count" class="hint"></p>
           <div id="palette"></div>
         </section>
         <section id="asset-properties">
           <h2>Asset selezionato</h2>
           <p id="asset-title"></p>
+          <button id="favorite-asset">☆ Aggiungi ai preferiti</button>
           <div class="row">
             <label>Larghezza<input id="asset-w" type="number" min="1" max="2048" /></label
             ><label>Altezza<input id="asset-h" type="number" min="1" max="2048" /></label>
@@ -166,6 +195,21 @@
         </section>
         <section>
           <h2>Elemento selezionato</h2>
+          <div id="multi-selection" hidden>
+            <p id="selection-count"></p>
+            <div id="alignment-tools" class="tool-grid">
+              <button data-align="left">Sinistra</button><button data-align="right">Destra</button
+              ><button data-align="top">Alto</button><button data-align="bottom">Basso</button
+              ><button data-align="centerX">Centro X</button
+              ><button data-align="centerY">Centro Y</button
+              ><button data-align="distributeX">Distribuisci X</button
+              ><button data-align="distributeY">Distribuisci Y</button>
+            </div>
+            <div class="row">
+              <button id="duplicate-selection">Duplica gruppo</button
+              ><button id="delete-selection">Elimina gruppo</button>
+            </div>
+          </div>
           <p id="selection-info">Usa Seleziona e clicca un oggetto o punto gameplay.</p>
           <div id="selection-fields" hidden>
             <div class="row">

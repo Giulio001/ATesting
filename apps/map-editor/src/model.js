@@ -643,12 +643,166 @@ export function reviewMap(input) {
     if (!canStand(map, m.x, m.y, 9, shapes))
       add('blocked-portal', `Portale “${m.label || m.id}” non attraversabile.`, m.id);
   }
+  const reachability = analyzeReachability(map);
+  for (const marker of reachability?.unreachable ?? [])
+    issues.push({
+      severity: 'warning',
+      code: 'unreachable-marker',
+      message: `“${marker.label || marker.id}” potrebbe essere irraggiungibile dall’ingresso. Verifica il percorso in Prova mappa.`,
+      item: marker.id,
+    });
   return issues;
 }
 export function approveMap(map) {
   const issues = reviewMap(map);
-  requireValue(!issues.length, `Approvazione bloccata: ${issues.length} problemi.`);
+  const errors = issues.filter((i) => i.severity === 'error');
+  requireValue(!errors.length, `Approvazione bloccata: ${errors.length} problemi.`);
   const next = validateMap(map);
   next.review = { status: 'approved' };
   return next;
+}
+
+// Editor operations use one shared displacement, preserving relative placement.
+export function selectionBounds(items) {
+  if (!items.length) return null;
+  const xs = items.map((i) => i.x),
+    ys = items.map((i) => i.y);
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+}
+export function groupPositions(map, items, dx, dy, step = 1) {
+  const b = selectionBounds(items);
+  if (!b) return [];
+  dx = Math.round(dx / step) * step;
+  dy = Math.round(dy / step) * step;
+  dx = Math.max(-b.minX, Math.min(dx, map.width * map.tileSize - 1 - b.maxX));
+  dy = Math.max(-b.minY, Math.min(dy, map.height * map.tileSize - 1 - b.maxY));
+  return items.map((i) => ({ id: i.id, x: i.x + dx, y: i.y + dy }));
+}
+export function alignedPositions(items, operation) {
+  if (items.length < 2) return [];
+  const b = selectionBounds(items),
+    output = items.map((i) => ({ id: i.id, x: i.x, y: i.y }));
+  const align = {
+    left: ['x', b.minX],
+    right: ['x', b.maxX],
+    top: ['y', b.minY],
+    bottom: ['y', b.maxY],
+    centerX: ['x', (b.minX + b.maxX) / 2],
+    centerY: ['y', (b.minY + b.maxY) / 2],
+  };
+  if (align[operation]) {
+    const [axis, value] = align[operation];
+    for (const i of output) i[axis] = value;
+  } else if (['distributeX', 'distributeY'].includes(operation) && items.length >= 3) {
+    const axis = operation === 'distributeX' ? 'x' : 'y';
+    const sorted = [...output].sort((a, b) => a[axis] - b[axis]);
+    const first = sorted[0][axis],
+      last = sorted.at(-1)[axis];
+    sorted.forEach((i, n) => (i[axis] = first + ((last - first) * n) / (sorted.length - 1)));
+  } else throw new Error('Operazione di allineamento non valida o selezione insufficiente.');
+  return output;
+}
+export function canTraverse(map, a, b, shapes = collisionShapes(map), radius = 9) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4));
+  for (let n = 0; n <= steps; n++)
+    if (
+      !canStand(
+        map,
+        a.x + ((b.x - a.x) * n) / steps,
+        a.y + ((b.y - a.y) * n) / steps,
+        radius,
+        shapes,
+      )
+    )
+      return false;
+  return true;
+}
+export function analyzeReachability(map) {
+  const spawn = map.markers.find((m) => m.type === 'spawn'),
+    shapes = collisionShapes(map),
+    size = map.width * map.height;
+  if (!spawn || !canStand(map, spawn.x, spawn.y, 9, shapes)) return null;
+  const buckets = Array.from({ length: size }, () => []);
+  for (const shape of shapes) {
+    const bounds =
+      shape.type === 'polygon'
+        ? {
+            x: Math.min(...shape.points.map((p) => p.x)),
+            y: Math.min(...shape.points.map((p) => p.y)),
+            right: Math.max(...shape.points.map((p) => p.x)),
+            bottom: Math.max(...shape.points.map((p) => p.y)),
+          }
+        : { x: shape.x, y: shape.y, right: shape.x + shape.width, bottom: shape.y + shape.height };
+    const x0 = Math.max(0, Math.floor((bounds.x - 9) / map.tileSize)),
+      x1 = Math.min(map.width - 1, Math.floor((bounds.right + 9) / map.tileSize));
+    const y0 = Math.max(0, Math.floor((bounds.y - 9) / map.tileSize)),
+      y1 = Math.min(map.height - 1, Math.floor((bounds.bottom + 9) / map.tileSize));
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) buckets[y * map.width + x].push(shape);
+  }
+  const point = (i) => ({
+    x: ((i % map.width) + 0.5) * map.tileSize,
+    y: (Math.floor(i / map.width) + 0.5) * map.tileSize,
+  });
+  const walkable = new Uint8Array(size),
+    reachable = new Uint8Array(size);
+  for (let i = 0; i < size; i++) {
+    const p = point(i);
+    walkable[i] = Number(canStand(map, p.x, p.y, 9, buckets[i]));
+  }
+  const cx = Math.floor(spawn.x / map.tileSize),
+    cy = Math.floor(spawn.y / map.tileSize),
+    queue = [];
+  for (let y = Math.max(0, cy - 1); y <= Math.min(map.height - 1, cy + 1); y++)
+    for (let x = Math.max(0, cx - 1); x <= Math.min(map.width - 1, cx + 1); x++) {
+      const i = y * map.width + x;
+      if (walkable[i] && canTraverse(map, spawn, point(i), shapes)) {
+        reachable[i] = 1;
+        queue.push(i);
+      }
+    }
+  for (let head = 0; head < queue.length; head++) {
+    const i = queue[head],
+      x = i % map.width,
+      y = Math.floor(i / map.width);
+    for (const n of [
+      x > 0 ? i - 1 : -1,
+      x < map.width - 1 ? i + 1 : -1,
+      y > 0 ? i - map.width : -1,
+      y < map.height - 1 ? i + map.width : -1,
+    ])
+      if (n >= 0 && walkable[n] && !reachable[n]) {
+        const candidates = [...new Set([...buckets[i], ...buckets[n]])];
+        if (canTraverse(map, point(i), point(n), candidates)) {
+          reachable[n] = 1;
+          queue.push(n);
+        }
+      }
+  }
+  const unreachable = [];
+  for (const marker of map.markers.filter((m) =>
+    ['portal', 'npc', 'boss', 'enemy'].includes(m.type),
+  )) {
+    const x = Math.floor(marker.x / map.tileSize),
+      y = Math.floor(marker.y / map.tileSize);
+    let found = false;
+    for (let ny = Math.max(0, y - 1); ny <= Math.min(map.height - 1, y + 1) && !found; ny++)
+      for (let nx = Math.max(0, x - 1); nx <= Math.min(map.width - 1, x + 1); nx++) {
+        const i = ny * map.width + nx;
+        if (
+          reachable[i] &&
+          (marker.type !== 'portal' || canTraverse(map, point(i), marker, shapes))
+        ) {
+          found = true;
+          break;
+        }
+      }
+    if (!found) unreachable.push(marker);
+  }
+  return { walkable, reachable, unreachable, count: queue.length };
 }

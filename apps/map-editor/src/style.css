@@ -326,3 +326,33 @@ body.testing #approve {
   pointer-events: none;
   opacity: 0.45;
 }
+
+#multi-selection[hidden] {
+  display: none;
+}
+#minimap {
+  width: 100%;
+  height: 140px;
+  border: 1px solid #52674f;
+  cursor: crosshair;
+}
+#asset-search {
+  margin-top: 8px;
+}
+#checkpoint-list {
+  font-size: 10px;
+  margin-top: 8px;
+}
+#draft-state {
+  white-space: nowrap;
+  margin: 0;
+  font-size: 10px;
+  color: #aacbaf;
+}
+#multi-selection .row {
+  margin-top: 8px;
+}
+body.testing #multi-selection {
+  pointer-events: none;
+  opacity: 0.45;
+}
