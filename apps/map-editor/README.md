@@ -1,6 +1,6 @@
 # Aetheria · Atelier delle mappe
 
-Editor 2D manuale in HTML, JavaScript e Phaser 3.90. Include selezione multipla, allineamento, minimappa, checkpoint, livelli separati, collisioni per istanza, autotiling, revisione e biblioteca con **69 asset reali** di Aetheria. È indipendente dal gioco Three.js di ATesting. L'export ha un loader Phaser incluso, ma non è ancora collegato al gioco 2D online.
+Editor 2D manuale in HTML, JavaScript e Phaser 3.90. Include selezione multipla, allineamento, minimappa, checkpoint, livelli separati, collisioni per istanza, autotiling, revisione e biblioteca iniziale con **69 asset reali** e catalogo completo dei **3.437 file runtime** di Aetheria. È indipendente dal gioco Three.js di ATesting. L'export ha un loader Phaser incluso, ma non è ancora collegato al gioco 2D online.
 
 ![Editor con biblioteca e livelli](../../docs/map-editor-v3.png)
 
@@ -23,6 +23,14 @@ Per la LAN: `npm run dev -w @aetheria/map-editor -- --host 0.0.0.0`. Login, salv
 **Carica asset Aetheria** aggiunge una biblioteca locale: erba/piazza di Lumengate, strade, acqua, ponte, barile, cassa, scrigno, cartello, fontana, pavimento/corpo/tetto di una casa, Pozzo dell'Infinito e lampioni. I 69 elementi comprendono le varianti dei terreni e degli autotile, non 69 edifici diversi. Sono PNG copiati dal repository del gioco, ritagliati secondo i rispettivi fogli; la fontana usa una posa statica. Non si aggiungono ombre geometriche ai PNG. Le collisioni suggerite sono modificabili: vanno verificate per la disposizione concreta della mappa.
 
 Usa tile **48 px** per mantenere la risoluzione originale di questi terreni. Le dimensioni visuali degli oggetti sono in pixel e restano modificabili. La biblioteca si può caricare più volte senza duplicare gli asset. I ritagli importati vengono incorporati nel JSON: nessun accesso GitHub o URL esterno è necessario per riaprire una mappa. Le sorgenti e i crediti sono in `public/game-assets/`, incluso `SOURCE-CREDITS.md`.
+
+### Catalogo completo del gioco
+
+Premi **Catalogo completo Aetheria**: comprende tutti i file tracciati sotto `apps/client/public/assets/` del gioco alla revisione `eb748e2e596dbc303659adec24776868539b4fc7`: **3.355 immagini, 39 audio e 43 file di metadati/crediti**. Categoria, ricerca e paginazione consentono di esplorare la biblioteca. Seleziona un foglio, scegli il fotogramma/cella o imposta X/Y/larghezza/altezza e premi **Aggiungi alla mappa**. Gli atlanti supportati offrono elementi nominati. Le animazioni vengono importate come pose statiche. Audio e metadati sono consultabili/scaricabili, non elementi da posizionare sulla mappa.
+
+Le immagini e gli audio originali vengono scaricati a richiesta dal server pubblico del gioco, verificati rispetto alla SHA Git della revisione e conservati nella cartella `.catalog-cache/` sul computer che ospita l'editor. Il primo utilizzo richiede Internet; se il gioco sostituisce un file, l'editor segnala la differenza e non importa una texture diversa. I metadati e i due SVG sono inclusi integralmente nel progetto. Due anteprime già corrotte nella sorgente (`hud_preview.png`, `verdant_frontier_preview.png`) sono indicate come non visualizzabili. **I PNG aggiunti alla mappa sono incorporati nel JSON**, quindi riaprire/exportare quella mappa non richiede il catalogo remoto.
+
+Il catalogo completo richiede il server Node di `npm run editor` o `npm run preview -w @aetheria/map-editor`: il middleware Vite serve gli originali dalla cache e gestisce i download. Pubblicare solo `dist/` su hosting statico non offre questo endpoint; per renderlo online occorre ospitare il server oppure fornire un endpoint equivalente. Per provarlo con i collaboratori sulla LAN usa il comando riportato sopra; le bozze restano locali a ciascun browser.
 
 **Cerca asset** filtra la palette per nome; la stella salva i preferiti in questo browser. **Contagocce (I)** campiona il terreno o l’oggetto dal livello attivo e torna al pennello/posizionamento. Le varianti autotile sono raggruppate nella palette.
 
@@ -132,4 +140,4 @@ npm run test:editor
 npm run build:editor
 ```
 
-20 test coprono migrazione, validazione, pittura, resize, collider rettangolari/poligonali, ereditarietà, livelli, 16 maschere autotile, approvazione, catalogo reale, cronologia, spostamento di gruppi, allineamento, distribuzione e analisi dei percorsi. Verificati anche nel browser caricamento biblioteca, blocco/visibilità, disegno dei collider, riparazione dei problemi di approvazione, invalidazione dopo modifica, pittura e round trip JSON; inoltre selezione a rettangolo, copia/eliminazione/undo di gruppi, ripristino checkpoint, recupero bozza al reload, ricerca/preferiti, contagocce, minimappa e avvisi di raggiungibilità.
+24 test coprono migrazione, validazione, pittura, resize, collider rettangolari/poligonali, ereditarietà, livelli, 16 maschere autotile, approvazione, catalogo reale, cronologia, spostamento di gruppi, allineamento, distribuzione e analisi dei percorsi; inoltre completezza e SHA del catalogo, ritagli, provenienza nell’export e endpoint degli originali. Verificati anche nel browser caricamento biblioteca, blocco/visibilità, disegno dei collider, riparazione dei problemi di approvazione, invalidazione dopo modifica, pittura e round trip JSON; inoltre selezione a rettangolo, copia/eliminazione/undo di gruppi, ripristino checkpoint, recupero bozza al reload, ricerca/preferiti, contagocce, minimappa e avvisi di raggiungibilità.

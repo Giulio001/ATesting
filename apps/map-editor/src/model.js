@@ -191,6 +191,18 @@ export function validateMap(input) {
             /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(a.image),
       'Asset deve contenere un PNG incorporato o un esempio noto.',
     );
+    requireValue(
+      a.category === undefined || (typeof a.category === 'string' && a.category.length <= 100),
+      'Categoria non valida.',
+    );
+    requireValue(
+      a.sourcePath === undefined ||
+        (typeof a.sourcePath === 'string' &&
+          a.sourcePath.length <= 300 &&
+          !a.sourcePath.includes('..') &&
+          !a.sourcePath.includes(':')),
+      'Provenienza non valida.',
+    );
     if (a.variant !== undefined)
       requireValue(
         Number.isInteger(a.variant) && finiteRange(a.variant, 0, 15),
@@ -302,6 +314,8 @@ export function validateMap(input) {
       collider: a.collider ? cleanShape(a.collider) : null,
       ...(a.variant === undefined ? {} : { variant: a.variant }),
       ...(OBJECT_LAYERS.includes(a.defaultLayer) ? { defaultLayer: a.defaultLayer } : {}),
+      ...(a.category === undefined ? {} : { category: a.category }),
+      ...(a.sourcePath === undefined ? {} : { sourcePath: a.sourcePath }),
       ...(a.builtin ? { builtin: a.builtin } : { image: a.image }),
     })),
     terrain: [...input.terrain],

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import './style.css';
 import { addGameLibrary } from './game-library.js';
+import { installFullCatalog } from './full-catalog.js';
 import {
   readDraft,
   saveDraft,
@@ -1228,6 +1229,7 @@ $('png-file').onchange = async (e) => {
   }
 };
 window.addEventListener('keydown', (e) => {
+  if (document.getElementById('full-catalog')?.open) return;
   if (isField(e.target)) return;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code))
     e.preventDefault();
@@ -1503,6 +1505,25 @@ $('approve').onclick = () => {
     showReview();
   }
 };
+installFullCatalog(async (a) => {
+  if (testing || !scene) return;
+  const version = draftVersion,
+    next = clone(map),
+    existing = next.assets.find((x) => x.id === a.id);
+  if (!existing) next.assets.push(a);
+  validateMap(next);
+  if (new Blob([JSON.stringify(next)]).size > 40_000_000) throw Error('Il progetto supera 40 MB.');
+  await prepareTextures(scene, next.assets);
+  if (version !== draftVersion || testing)
+    throw Error('La mappa è cambiata: riprova l’importazione.');
+  if (!existing) {
+    checkpoint();
+    map = next;
+    finish();
+  }
+  chooseAsset(map.assets.find((x) => x.id === a.id));
+  status('Asset originale aggiunto alla palette.');
+}, status);
 $('game-assets').onclick = async () => {
   if (testing || !scene) return;
   const button = $('game-assets');
